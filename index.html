@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>KERP — tap to earn</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="bg"></div>
+    <div id="toast"></div>
+
+    <div class="topbar">
+        <div class="logo">KERP</div>
+        <div class="energyBox">⚡ <span id="energy">0</span></div>
+        <div class="kerpBox">🪙 <span id="kerpBalance">0</span> KERP</div>
+    </div>
+
+    <div class="tapBarBox">
+        <div class="tapBar"><div id="tapBarFill"></div></div>
+        <div id="tapEnergyText">50 / 50</div>
+    </div>
+
+    <div class="content">
+        <!-- MAIN -->
+        <div id="main" class="tab active">
+            <div class="mainCenter">
+                <button id="tapButton">KERP</button>
+                <div class="tapTitle">⚡ TAP TO EARN KERP</div>
+                <div class="totalText">TOTAL TAPS: <span id="totalTapText">0</span></div>
+                <div class="levelText">LEVEL <span id="levelText">1</span></div>
+                <div class="prestigeBonusText">✨ PRESTIGE BONUS: x<span id="prestigeMultiplier">1.00</span></div>
+                <div class="statsMini">
+                    <div class="miniCard">🔥 POWER<br><span id="powerText">1</span></div>
+                    <div class="miniCard">⚡ AUTO<br><span id="autoText">0</span></div>
+                    <div class="miniCard">💥 CRIT<br><span id="critText">0</span>%</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SHOP -->
+        <div id="shop" class="tab"><h2>🛒 SHOP</h2><div class="grid">
+            <div class="card"><h3>🔥 POWER</h3><p>Увеличение энергии за тап</p><p id="powerCost">💰 Cost: 500</p><button id="buyPower">BUY</button></div>
+            <div class="card"><h3>⚡ AUTO TAP</h3><p>Пассивный доход энергии</p><p id="autoCost">💰 Cost: 1000</p><button id="buyAuto">BUY</button></div>
+            <div class="card"><h3>💥 CRITICAL</h3><p>Шанс x3 энергии</p><p id="critCost">💰 Cost: 2000</p><button id="buyCrit">BUY</button></div>
+        </div></div>
+
+        <!-- UPGRADES -->
+        <div id="upgrades" class="tab"><h2>🔧 UPGRADES</h2><div class="grid">
+            <div class="card"><h3>🔥 Tap Engine</h3><p>+5 power</p><p id="tapUpgradeCost">💰 Cost: 50000</p><button id="upTap">UPGRADE</button></div>
+            <div class="card"><h3>⚡ Reactor</h3><p>+5 auto</p><p id="autoUpgradeCost">💰 Cost: 80000</p><button id="upAuto">UPGRADE</button></div>
+            <div class="card"><h3>💥 Quantum Crit</h3><p>+5% crit</p><p id="critUpgradeCost">💰 Cost: 120000</p><button id="upCrit">UPGRADE</button></div>
+            <div class="card"><h3>🔋 Energy Core</h3><p>+10 max energy</p><p>💰 Cost: 1000000</p><button id="upCore">UPGRADE</button><div class="tip">Раз в час</div></div>
+        </div></div>
+
+        <!-- PRESTIGE -->
+        <div id="prestige" class="tab"><h2>✨ PRESTIGE</h2><div class="card" style="text-align:center">
+            <h3>РЕИНКАРНАЦИЯ</h3><p>Сбросьте прогресс для вечного бонуса</p><p>🎯 Нужно: 1,000,000 тапов</p>
+            <p id="prestigeProgress">📊 Прогресс: 0 / 1,000,000</p><p id="prestigeReward">🎁 Следующий престиж: x1.10</p>
+            <button id="prestigeBtn" style="background:#ff8800;">🌟 ПРЕСТИЖ 🌟</button>
+            <div class="tip">Бонус престижа остаётся, остальное сбрасывается</div>
+        </div></div>
+
+        <!-- DAILY -->
+        <div id="daily" class="tab"><h2>📅 ЕЖЕДНЕВНАЯ НАГРАДА</h2><div class="card"><h3>ЕЖЕДНЕВНЫЙ БОНУС</h3><p>Забирайте каждый день!</p><button id="dailyBtn">ЗАБРАТЬ</button><p id="dailyTimer">ГОТОВО</p></div></div>
+
+        <!-- STATS -->
+        <div id="stats" class="tab"><h2>📊 СТАТИСТИКА</h2><div class="card"><p id="statsText">Загрузка...</p></div></div>
+
+        <!-- TOP PLAYERS -->
+        <div id="top" class="tab"><h2>🏆 ТОП ИГРОКОВ</h2><div class="card">
+            <div id="playerInfo">🔐 Не авторизован</div>
+            <h3>🏆 ТАП-ЛИДЕРЫ</h3>
+            <div id="topTapsList">Загрузка...</div>
+            <div class="tip">Авторизуйтесь через Telegram, чтобы попасть в рейтинг</div>
+        </div></div>
+
+        <!-- REFERRALS -->
+        <div id="referrals" class="tab"><h2>👥 РЕФЕРАЛЬНАЯ ПРОГРАММА</h2><div class="card">
+            <h3>Ваша реферальная ссылка</h3><p>Зовите друзей → получайте <span style="color:#ffd700;">10% от их KERP</span> навсегда!</p>
+            <div style="display:flex; gap:10px;"><input type="text" id="refLink" readonly><button id="copyRefBtn">📋 Копировать</button></div>
+            <div id="refStats">👥 Приглашённых: <span id="refCount">0</span> | 💰 Заработано: <span id="refEarned">0</span> KERP</div>
+            <div id="refList"><em>Пока никого нет</em></div>
+        </div></div>
+
+        <!-- NEWS -->
+        <div id="news" class="tab"><h2>📢 КАК ЗАРАБОТАТЬ</h2><div class="card">
+            <p>🔥 <strong>Энергия (⚡)</strong> – восстанавливается 1/сек. Каждый тап даёт <strong>0.00001 KERP</strong> (умножается на престиж).<br>
+            📈 Улучшения POWER / AUTO / CRIT увеличивают <strong>энергию за тап</strong>, а не KERP.<br>
+            🌟 Престиж умножает <strong>весь доход</strong> (энергия + KERP).<br>
+            👥 Рефералы – 10% от KERP друга навсегда!<br>
+            💎 Подключите TON кошелёк для будущего вывода.<br>
+            🚀 Чем больше тапов, тем больше KERP. Делитесь ссылкой!</p>
+            <hr><h3>📰 НОВОСТИ</h3><div>🌌 KERP на тестовой сети TON</div><div>🚀 Реферальная система активна</div>
+        </div></div>
+
+        <!-- SETTINGS -->
+        <div id="settings" class="tab"><h2>⚙ НАСТРОЙКИ</h2><div class="grid">
+            <div class="card"><h3>🔐 АВТОРИЗАЦИЯ TELEGRAM</h3><p>Войдите через Telegram, чтобы сохранить прогресс и участвовать в рейтинге</p>
+                <div id="telegram-login-container"></div>
+                <div id="loginStatus" style="margin-top:10px;"></div>
+            </div>
+            <div class="card"><h3>👤 ГОСТЕВОЙ ВХОД</h3><p>Без регистрации (прогресс сохраняется в браузере)</p>
+                <input type="text" id="guestName" placeholder="Никнейм" maxlength="20" style="width:100%; margin-bottom:10px;">
+                <button id="guestLoginBtn">🚪 Войти как гость</button>
+            </div>
+            <div class="card"><h3>💰 КОШЕЛЁК KERP (TON)</h3><div id="ton-wallet-status"><button id="ton-connect-wallet">Подключить TON кошелёк</button></div>
+                <div id="kerp-balance" style="display:none;">🪙 <span id="kerp-balance-amount">0</span> KERP в блокчейне</div>
+            </div>
+            <div class="card"><h3>🔊 ЗВУК</h3><button id="toggleSoundBtn">🔊 ВКЛ</button></div>
+            <div class="card"><h3>💾 ЭКСПОРТ</h3><button id="exportBtn">📤 СОХРАНИТЬ</button></div>
+            <div class="card"><h3>📥 ИМПОРТ</h3><button id="importBtn">📥 ЗАГРУЗИТЬ</button><input type="file" id="importFile" style="display:none"></div>
+            <div class="card"><h3>🎮 АВТОСОХРАНЕНИЕ</h3><button id="autosaveStatus">✅ ВКЛ</button></div>
+            <div class="card"><h3>🗑 МЯГКИЙ СБРОС</h3><button id="softResetBtn" style="background:#ff8800;">⚠ СБРОС (престиж остаётся)</button></div>
+            <div class="card"><h3>💀 ЖЁСТКИЙ СБРОС</h3><button id="hardResetBtn" style="background:#ff2255;">💀 УДАЛИТЬ ВСЁ</button></div>
+        </div></div>
+    </div>
+
+    <div class="bottomMenu">
+        <button onclick="openTab('main')">🏠</button>
+        <button onclick="openTab('shop')">🛒</button>
+        <button onclick="openTab('upgrades')">🔧</button>
+        <button onclick="openTab('prestige')">✨</button>
+        <button onclick="openTab('daily')">📅</button>
+        <button onclick="openTab('stats')">📊</button>
+        <button onclick="openTab('top')">🏆</button>
+        <button onclick="openTab('referrals')">👥</button>
+        <button onclick="openTab('news')">📢</button>
+        <button onclick="openTab('settings')">⚙️</button>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
