@@ -1,7 +1,5 @@
-// ========== КОНФИГУРАЦИЯ ==========
 const TELEGRAM_BOT_NAME = 'kerpcoin_bot';
 
-// Supabase (замени на свои, если нужно)
 const SUPABASE_URL = 'https://dgkbwsryeuayjmwhgskz.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_GO6ZcJPyOHeKPD4UkWs-RQ_MeYF0OGA';
 
@@ -9,22 +7,19 @@ let supabase = null;
 let useSupabase = false;
 let tonConnectUI = null;
 
-// ========== SUPABASE ==========
 async function initSupabase() {
     try {
-        const supabaseModule = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/module/index.js');
-        const { createClient } = supabaseModule;
+        const module = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/module/index.js');
+        const { createClient } = module;
         supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         useSupabase = true;
-        console.log('✅ Supabase connected');
         await loadGlobalLeaderboard();
     } catch(e) {
-        console.error('Supabase error:', e);
+        console.error(e);
         useSupabase = false;
     }
 }
 
-// ========== TON COIN WALLET ==========
 async function initTonConnect() {
     try {
         const link = document.createElement('link');
@@ -41,19 +36,13 @@ async function initTonConnect() {
                     manifestUrl: 'https://raw.githubusercontent.com/ton-connect/demo-dapp/main/public/tonconnect-manifest.json',
                     buttonRootId: 'ton-connect-wallet'
                 });
-                
                 tonConnectUI.onStatusChange((wallet) => {
                     if (wallet) {
-                        const address = wallet.account.address;
-                        const shortAddress = address.slice(0, 6) + '...' + address.slice(-4);
-                        document.getElementById('ton-wallet-status').innerHTML = `
-                            <div style="background:rgba(0,255,0,0.1); padding:10px; border-radius:15px;">
-                                ✅ Кошелёк: ${shortAddress}<br>
-                                <button id="tonDisconnectBtn" style="margin-top:8px; background:#ff4444;">Отключить</button>
-                            </div>
-                        `;
+                        const addr = wallet.account.address;
+                        const short = addr.slice(0,6)+'...'+addr.slice(-4);
+                        document.getElementById('ton-wallet-status').innerHTML = `<div style="background:rgba(0,255,0,0.1);padding:10px;border-radius:15px;">✅ Кошелёк: ${short}<br><button id="tonDisconnectBtn" style="margin-top:8px;background:#ff4444;">Отключить</button></div>`;
                         document.getElementById('kerp-balance').style.display = 'block';
-                        data.walletAddress = address;
+                        data.walletAddress = addr;
                         save();
                         document.getElementById('kerp-balance-amount').innerText = data.kerpBalance.toFixed(5);
                         document.getElementById('tonDisconnectBtn')?.addEventListener('click', () => tonConnectUI.disconnect());
@@ -68,20 +57,17 @@ async function initTonConnect() {
             }
         };
         document.body.appendChild(script);
-    } catch(e) {
-        console.error('TonConnect error:', e);
-    }
+    } catch(e) { console.error(e); }
 }
 
-// ========== ДАННЫЕ ==========
 let data = JSON.parse(localStorage.getItem("kerp")) || {};
-if (!data.version || data.version !== 19) {
+if (!data.version || data.version !== 20) {
     if (!data.userId) {
         localStorage.clear();
         data = {};
     }
 }
-data.version = 19;
+data.version = 20;
 
 data.energy = Number(data.energy) || 0;
 data.totalTaps = Number(data.totalTaps) || 0;
@@ -95,35 +81,24 @@ data.regen = 1;
 data.prestigeMultiplier = Number(data.prestigeMultiplier) || 1.0;
 data.totalPrestigeTaps = Number(data.totalPrestigeTaps) || 0;
 data.soundEnabled = data.soundEnabled !== undefined ? data.soundEnabled : true;
-
 data.userId = data.userId || null;
 data.userName = data.userName || null;
 data.walletAddress = data.walletAddress || null;
-data.refCode = data.refCode || generateRefCode();
+data.refCode = data.refCode || 'ref_'+Date.now()+'_'+Math.random().toString(36).substr(2,8);
 data.referredBy = data.referredBy || null;
 data.referrals = data.referrals || [];
 data.refEarned = data.refEarned || 0;
-
 data.lastDaily = Number(data.lastDaily) || 0;
 data.lastUpgrade = Number(data.lastUpgrade) || 0;
 data.lastEnergyUpgrade = Number(data.lastEnergyUpgrade) || 0;
 data.level = Math.floor(data.totalTaps / 5000) + 1;
 
-function generateRefCode() {
-    return 'ref_' + Date.now() + '_' + Math.random().toString(36).substr(2, 8);
-}
-
-// ========== ГЛОБАЛЬНЫЙ ТОП ==========
 let globalLeaderboard = [];
 
 async function loadGlobalLeaderboard() {
     if (!useSupabase) return;
     try {
-        const { data: players, error } = await supabase
-            .from('players')
-            .select('user_id, user_name, total_taps, kerp_balance')
-            .order('total_taps', { ascending: false })
-            .limit(50);
+        const { data: players, error } = await supabase.from('players').select('user_id, user_name, total_taps, kerp_balance').order('total_taps', { ascending: false }).limit(50);
         if (error) throw error;
         globalLeaderboard = players || [];
         displayLeaderboard();
@@ -144,26 +119,23 @@ async function saveToCloud() {
             last_update: new Date().toISOString()
         });
         await loadGlobalLeaderboard();
-    } catch(e) { console.error('Cloud save error:', e); }
+    } catch(e) { console.error(e); }
 }
 
 function displayLeaderboard() {
-    let container = document.getElementById("topTapsList");
+    let container = document.getElementById('topTapsList');
     if (!container) return;
-    if (globalLeaderboard.length === 0) {
-        container.innerHTML = '<div class="leaderboard-item">😴 Пока никого нет. Войди первым!</div>';
-        return;
-    }
-    let html = "";
-    globalLeaderboard.forEach((player, idx) => {
-        let medal = idx === 0 ? "👑 " : idx === 1 ? "🥈 " : idx === 2 ? "🥉 " : "";
-        html += `<div class="leaderboard-item">${medal}#${idx+1} ${player.user_name?.substring(0,15)} | ${player.total_taps?.toLocaleString()} | 🪙 ${(player.kerp_balance || 0).toFixed(5)}</div>`;
+    if (globalLeaderboard.length === 0) { container.innerHTML = '<div class="leaderboard-item">😴 Пока никого нет</div>'; return; }
+    let html = '';
+    globalLeaderboard.forEach((p,i) => {
+        let medal = i===0?'👑 ':i===1?'🥈 ':i===2?'🥉 ':'';
+        html += `<div class="leaderboard-item">${medal}#${i+1} ${(p.user_name||'???').substring(0,15)} | ${(p.total_taps||0).toLocaleString()} | 🪙 ${(p.kerp_balance||0).toFixed(5)}</div>`;
     });
     container.innerHTML = html;
 }
 
 function updatePlayerInfo() {
-    let div = document.getElementById("playerInfo");
+    let div = document.getElementById('playerInfo');
     if (!div) return;
     if (data.userId) {
         div.innerHTML = `✅ <strong>${data.userName}</strong><br>👆 ${data.totalTaps.toLocaleString()} тапов ✨ x${data.prestigeMultiplier.toFixed(2)}<br>🪙 ${data.kerpBalance.toFixed(5)} KERP`;
@@ -173,15 +145,14 @@ function updatePlayerInfo() {
     }
 }
 
-// ========== ФУНКЦИИ ИГРЫ ==========
 function save() {
-    localStorage.setItem("kerp", JSON.stringify(data));
+    localStorage.setItem('kerp', JSON.stringify(data));
     if (data.userId) saveToCloud();
 }
 
-function toast(text) {
-    let el = document.getElementById("toast");
-    el.innerText = text;
+function toast(t) {
+    let el = document.getElementById('toast');
+    el.innerText = t;
     el.style.opacity = 1;
     setTimeout(() => el.style.opacity = 0, 1700);
 }
@@ -204,23 +175,19 @@ function playSound() {
 }
 
 const KERP_PER_TAP = 0.00001;
+
 function addKerp(amount) {
     let gain = amount * data.prestigeMultiplier;
     data.kerpBalance += gain;
     if (data.referredBy) {
         let inviter = globalLeaderboard.find(p => p.refCode === data.referredBy);
         if (inviter) {
-            let refBonus = gain * 0.1;
-            inviter.refEarned = (inviter.refEarned || 0) + refBonus;
-            inviter.kerpBalance = (inviter.kerpBalance || 0) + refBonus;
-            if (useSupabase) saveToCloud();
+            let bonus = gain * 0.1;
+            inviter.refEarned = (inviter.refEarned || 0) + bonus;
+            inviter.kerpBalance = (inviter.kerpBalance || 0) + bonus;
         }
     }
-    updateKerpDisplay();
-}
-
-function updateKerpDisplay() {
-    document.getElementById("kerpBalance").innerText = data.kerpBalance.toFixed(5);
+    document.getElementById('kerpBalance').innerText = data.kerpBalance.toFixed(5);
     if (data.walletAddress) document.getElementById('kerp-balance-amount').innerText = data.kerpBalance.toFixed(5);
 }
 
@@ -236,21 +203,21 @@ function updateUI() {
     data.level = Math.floor(data.totalTaps / 5000) + 1;
     if (data.tapEnergy > data.maxTapEnergy) data.tapEnergy = data.maxTapEnergy;
     
-    document.getElementById("energy").innerText = Math.floor(data.energy);
-    document.getElementById("powerText").innerText = data.power;
-    document.getElementById("autoText").innerText = data.auto;
-    document.getElementById("critText").innerText = data.crit;
-    document.getElementById("totalTapText").innerText = data.totalTaps.toLocaleString();
-    document.getElementById("levelText").innerText = data.level;
-    document.getElementById("prestigeMultiplier").innerText = data.prestigeMultiplier.toFixed(2);
-    document.getElementById("powerCost").innerHTML = `💰 ${powerCost()}`;
-    document.getElementById("autoCost").innerHTML = `💰 ${autoCost()}`;
-    document.getElementById("critCost").innerHTML = `💰 ${critCost()}`;
-    document.getElementById("tapUpgradeCost").innerHTML = `💰 ${tapUpgradeCost()}`;
-    document.getElementById("autoUpgradeCost").innerHTML = `💰 ${autoUpgradeCost()}`;
-    document.getElementById("critUpgradeCost").innerHTML = `💰 ${critUpgradeCost()}`;
+    document.getElementById('energy').innerText = Math.floor(data.energy);
+    document.getElementById('powerText').innerText = data.power;
+    document.getElementById('autoText').innerText = data.auto;
+    document.getElementById('critText').innerText = data.crit;
+    document.getElementById('totalTapText').innerText = data.totalTaps.toLocaleString();
+    document.getElementById('levelText').innerText = data.level;
+    document.getElementById('prestigeMultiplier').innerText = data.prestigeMultiplier.toFixed(2);
+    document.getElementById('powerCost').innerHTML = `💰 ${powerCost()}`;
+    document.getElementById('autoCost').innerHTML = `💰 ${autoCost()}`;
+    document.getElementById('critCost').innerHTML = `💰 ${critCost()}`;
+    document.getElementById('tapUpgradeCost').innerHTML = `💰 ${tapUpgradeCost()}`;
+    document.getElementById('autoUpgradeCost').innerHTML = `💰 ${autoUpgradeCost()}`;
+    document.getElementById('critUpgradeCost').innerHTML = `💰 ${critUpgradeCost()}`;
     
-    document.getElementById("statsText").innerHTML = `
+    document.getElementById('statsText').innerHTML = `
         🏆 Уровень: ${data.level}<br>
         ⚡ Энергия: ${Math.floor(data.energy)}<br>
         🔥 Сила: ${data.power}<br>
@@ -264,31 +231,34 @@ function updateUI() {
     
     let need = 1000000;
     let prog = Math.min(100, (data.totalTaps / need) * 100);
-    document.getElementById("prestigeProgress").innerHTML = `${data.totalTaps.toLocaleString()} / 1,000,000 (${Math.floor(prog)}%)`;
-    document.getElementById("prestigeProgressFill").style.width = prog + "%";
-    document.getElementById("prestigeReward").innerHTML = `🎁 Следующий престиж: x${(data.prestigeMultiplier+0.1).toFixed(2)}`;
-    document.getElementById("tapBarFill").style.width = (data.tapEnergy/data.maxTapEnergy*100)+"%";
-    document.getElementById("tapEnergyText").innerHTML = `${Math.floor(data.tapEnergy)} / ${data.maxTapEnergy}`;
+    document.getElementById('prestigeProgress').innerHTML = `${data.totalTaps.toLocaleString()} / 1,000,000 (${Math.floor(prog)}%)`;
+    document.getElementById('prestigeProgressFill').style.width = prog + '%';
+    document.getElementById('prestigeReward').innerHTML = `🎁 Следующий престиж: x${(data.prestigeMultiplier+0.1).toFixed(2)}`;
+    document.getElementById('tapBarFill').style.width = (data.tapEnergy/data.maxTapEnergy*100)+'%';
+    document.getElementById('tapEnergyText').innerHTML = `${Math.floor(data.tapEnergy)} / ${data.maxTapEnergy}`;
     
     let diff = 86400000 - (Date.now() - data.lastDaily);
-    if (diff <= 0) document.getElementById("dailyTimer").innerHTML = "🎁 ГОТОВО";
+    if (diff <= 0) document.getElementById('dailyTimer').innerHTML = '🎁 ГОТОВО';
     else {
         let h = Math.floor(diff/3600000);
         let m = Math.floor((diff%3600000)/60000);
-        document.getElementById("dailyTimer").innerHTML = `⏳ ${h}ч ${m}м`;
+        document.getElementById('dailyTimer').innerHTML = `⏳ ${h}ч ${m}м`;
     }
     
-    let soundBtn = document.getElementById("toggleSoundBtn");
-    if (soundBtn) soundBtn.innerHTML = data.soundEnabled ? "🔊 ВКЛ" : "🔇 ВЫКЛ";
+    let soundBtn = document.getElementById('toggleSoundBtn');
+    if (soundBtn) soundBtn.innerHTML = data.soundEnabled ? '🔊 ВКЛ' : '🔇 ВЫКЛ';
     
     updatePlayerInfo();
-    updateReferralUI();
-    updateKerpDisplay();
+    
+    let refLink = document.getElementById('refLink');
+    if (refLink) refLink.value = window.location.origin + window.location.pathname + '?ref=' + data.refCode;
+    document.getElementById('refCount').innerText = data.referrals?.length || 0;
+    document.getElementById('refEarned').innerText = data.refEarned?.toFixed(5) || '0';
 }
 
-// ========== ТАП ==========
-document.getElementById("tapButton").onclick = () => {
-    if (data.tapEnergy <= 0) { toast("⚠ НЕТ ЭНЕРГИИ"); return; }
+// === ТАП ===
+document.getElementById('tapButton').onclick = () => {
+    if (data.tapEnergy <= 0) { toast('⚠ НЕТ ЭНЕРГИИ'); return; }
     data.tapEnergy--;
     let gain = data.power;
     let isCrit = false;
@@ -297,29 +267,26 @@ document.getElementById("tapButton").onclick = () => {
     data.energy += gain;
     data.totalTaps++;
     addKerp(KERP_PER_TAP);
-    if (isCrit) toast("💥 КРИТ! +" + (KERP_PER_TAP * data.prestigeMultiplier).toFixed(8) + " KERP");
+    if (isCrit) toast('💥 КРИТ!');
     playSound();
-    let effect = document.createElement("div");
-    effect.className = "tapEffect";
+    let effect = document.createElement('div');
+    effect.className = 'tapEffect';
     effect.innerText = `+${gain}⚡ +${(KERP_PER_TAP * data.prestigeMultiplier).toFixed(8)}🪙`;
-    effect.style.left = (Math.random() * 150 + 50) + "px";
-    effect.style.top = (Math.random() * 150 + 50) + "px";
-    document.getElementById("tapButton").appendChild(effect);
+    effect.style.left = (Math.random() * 150 + 50) + 'px';
+    effect.style.top = (Math.random() * 150 + 50) + 'px';
+    document.getElementById('tapButton').appendChild(effect);
     setTimeout(() => effect.remove(), 600);
     updateUI();
     save();
 };
 
-// ========== АВТО ==========
+// === АВТО ===
 setInterval(() => {
     let autoGain = getMultipliedGain(data.auto);
     data.energy += autoGain;
     data.tapEnergy += data.regen;
     if (data.tapEnergy > data.maxTapEnergy) data.tapEnergy = data.maxTapEnergy;
-    if (data.auto > 0) {
-        let kerpAuto = KERP_PER_TAP * (data.auto / 10) * data.prestigeMultiplier;
-        addKerp(kerpAuto);
-    }
+    if (data.auto > 0) addKerp(KERP_PER_TAP * (data.auto / 10) * data.prestigeMultiplier);
     updateUI();
     save();
 }, 1000);
@@ -327,56 +294,55 @@ setInterval(() => {
 function canUpgrade() { return (Date.now() - data.lastUpgrade) >= 1800000; }
 function setCooldown() { data.lastUpgrade = Date.now(); }
 
-// ========== КНОПКИ МАГАЗИНА ==========
-document.getElementById("buyPower").onclick = () => {
-    if (!canUpgrade()) { toast("⏳ ПОДОЖДИ 30 МИНУТ"); return; }
+// === МАГАЗИН И УЛУЧШЕНИЯ ===
+document.getElementById('buyPower').onclick = () => {
+    if (!canUpgrade()) { toast('⏳ ПОДОЖДИ 30 МИНУТ'); return; }
     let cost = powerCost();
-    if (data.energy >= cost) { data.energy -= cost; data.power++; setCooldown(); toast("🔥 СИЛА +1"); playSound(); }
-    else toast("❌ НУЖНО " + cost);
+    if (data.energy >= cost) { data.energy -= cost; data.power++; setCooldown(); toast('🔥 СИЛА +1'); playSound(); }
+    else toast('❌ НУЖНО ' + cost);
     updateUI(); save();
 };
-document.getElementById("buyAuto").onclick = () => {
-    if (!canUpgrade()) { toast("⏳ ПОДОЖДИ 30 МИНУТ"); return; }
+document.getElementById('buyAuto').onclick = () => {
+    if (!canUpgrade()) { toast('⏳ ПОДОЖДИ 30 МИНУТ'); return; }
     let cost = autoCost();
-    if (data.energy >= cost) { data.energy -= cost; data.auto++; setCooldown(); toast("⚡ АВТО +1"); playSound(); }
-    else toast("❌ НУЖНО " + cost);
+    if (data.energy >= cost) { data.energy -= cost; data.auto++; setCooldown(); toast('⚡ АВТО +1'); playSound(); }
+    else toast('❌ НУЖНО ' + cost);
     updateUI(); save();
 };
-document.getElementById("buyCrit").onclick = () => {
-    if (!canUpgrade()) { toast("⏳ ПОДОЖДИ 30 МИНУТ"); return; }
+document.getElementById('buyCrit').onclick = () => {
+    if (!canUpgrade()) { toast('⏳ ПОДОЖДИ 30 МИНУТ'); return; }
     let cost = critCost();
-    if (data.energy >= cost) { data.energy -= cost; data.crit++; setCooldown(); toast("💥 КРИТ +1%"); playSound(); }
-    else toast("❌ НУЖНО " + cost);
+    if (data.energy >= cost) { data.energy -= cost; data.crit++; setCooldown(); toast('💥 КРИТ +1%'); playSound(); }
+    else toast('❌ НУЖНО ' + cost);
     updateUI(); save();
 };
-document.getElementById("upTap").onclick = () => {
+document.getElementById('upTap').onclick = () => {
     let cost = tapUpgradeCost();
-    if (data.energy >= cost) { data.energy -= cost; data.power += 5; toast("🔥 +5 СИЛЫ"); playSound(); }
-    else toast("❌ НУЖНО " + cost);
+    if (data.energy >= cost) { data.energy -= cost; data.power += 5; toast('🔥 +5 СИЛЫ'); playSound(); }
+    else toast('❌ НУЖНО ' + cost);
     updateUI(); save();
 };
-document.getElementById("upAuto").onclick = () => {
+document.getElementById('upAuto').onclick = () => {
     let cost = autoUpgradeCost();
-    if (data.energy >= cost) { data.energy -= cost; data.auto += 5; toast("⚡ +5 АВТО"); playSound(); }
-    else toast("❌ НУЖНО " + cost);
+    if (data.energy >= cost) { data.energy -= cost; data.auto += 5; toast('⚡ +5 АВТО'); playSound(); }
+    else toast('❌ НУЖНО ' + cost);
     updateUI(); save();
 };
-document.getElementById("upCrit").onclick = () => {
+document.getElementById('upCrit').onclick = () => {
     let cost = critUpgradeCost();
-    if (data.energy >= cost) { data.energy -= cost; data.crit += 5; toast("💥 +5% КРИТА"); playSound(); }
-    else toast("❌ НУЖНО " + cost);
+    if (data.energy >= cost) { data.energy -= cost; data.crit += 5; toast('💥 +5% КРИТА'); playSound(); }
+    else toast('❌ НУЖНО ' + cost);
     updateUI(); save();
 };
-document.getElementById("upCore").onclick = () => {
+document.getElementById('upCore').onclick = () => {
     let now = Date.now();
-    if (now - data.lastEnergyUpgrade < 3600000) { toast("⏳ ТОЛЬКО РАЗ В ЧАС"); return; }
-    let cost = 1000000;
-    if (data.energy >= cost) { data.energy -= cost; data.maxTapEnergy += 10; data.tapEnergy += 10; data.lastEnergyUpgrade = now; toast("🔋 +10 МАКС. ЭНЕРГИИ"); playSound(); }
-    else toast("❌ НУЖНО 1,000,000");
+    if (now - data.lastEnergyUpgrade < 3600000) { toast('⏳ ТОЛЬКО РАЗ В ЧАС'); return; }
+    if (data.energy >= 1000000) { data.energy -= 1000000; data.maxTapEnergy += 10; data.tapEnergy += 10; data.lastEnergyUpgrade = now; toast('🔋 +10 МАКС. ЭНЕРГИИ'); playSound(); }
+    else toast('❌ НУЖНО 1,000,000');
     updateUI(); save();
 };
-document.getElementById("prestigeBtn").onclick = () => {
-    if (data.totalTaps < 1000000) { toast("❌ НУЖНО 1,000,000 ТАПОВ"); return; }
+document.getElementById('prestigeBtn').onclick = () => {
+    if (data.totalTaps < 1000000) { toast('❌ НУЖНО 1,000,000 ТАПОВ'); return; }
     if (!confirm(`🌟 ПРЕСТИЖ!\nТекущий бонус: x${data.prestigeMultiplier.toFixed(2)}\nНовый: x${(data.prestigeMultiplier+0.1).toFixed(2)}`)) return;
     data.prestigeMultiplier += 0.1;
     data.totalPrestigeTaps += data.totalTaps;
@@ -387,39 +353,36 @@ document.getElementById("prestigeBtn").onclick = () => {
     playSound();
     updateUI(); save();
 };
-document.getElementById("dailyBtn").onclick = () => {
+// === ЕЖЕДНЕВКА — ТОЛЬКО ЭНЕРГИЯ ===
+document.getElementById('dailyBtn').onclick = () => {
     let now = Date.now();
     if (now - data.lastDaily > 86400000) {
-        let rewardEnergy = getMultipliedGain(50000 + data.level * 5000);
-        let rewardKerp = (1000 + data.level * 100) * data.prestigeMultiplier;
-        data.energy += rewardEnergy;
-        addKerp(rewardKerp);
+        let reward = getMultipliedGain(50000 + data.level * 5000);
+        data.energy += reward;
         data.lastDaily = now;
-        toast(`🎁 +${rewardEnergy}⚡ +${rewardKerp.toFixed(5)}🪙`);
+        toast(`🎁 +${reward} ⚡`);
         playSound();
-    } else toast("⏳ ЕЩЁ НЕ ГОТОВО");
+    } else toast('⏳ ЕЩЁ НЕ ГОТОВО');
     updateUI(); save();
 };
 
-// ========== НАСТРОЙКИ ==========
-document.getElementById("toggleSoundBtn").onclick = () => {
+// === НАСТРОЙКИ ===
+document.getElementById('toggleSoundBtn').onclick = () => {
     data.soundEnabled = !data.soundEnabled;
-    toast(data.soundEnabled ? "🔊 ЗВУК ВКЛ" : "🔇 ЗВУК ВЫКЛ");
+    toast(data.soundEnabled ? '🔊 ЗВУК ВКЛ' : '🔇 ЗВУК ВЫКЛ');
     updateUI(); save();
 };
-document.getElementById("exportBtn").onclick = () => {
-    let str = JSON.stringify(data);
-    let blob = new Blob([str], {type:"application/json"});
-    let url = URL.createObjectURL(blob);
-    let a = document.createElement("a");
-    a.href = url;
+document.getElementById('exportBtn').onclick = () => {
+    let blob = new Blob([JSON.stringify(data)], {type:'application/json'});
+    let a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
     a.download = `kerp_save_${Date.now()}.json`;
     a.click();
-    URL.revokeObjectURL(url);
-    toast("💾 СОХРАНЕНИЕ ЭКСПОРТИРОВАНО");
+    URL.revokeObjectURL(a.href);
+    toast('💾 СОХРАНЕНИЕ ЭКСПОРТИРОВАНО');
 };
-document.getElementById("importBtn").onclick = () => document.getElementById("importFile").click();
-document.getElementById("importFile").onchange = (e) => {
+document.getElementById('importBtn').onclick = () => document.getElementById('importFile').click();
+document.getElementById('importFile').onchange = (e) => {
     let file = e.target.files[0];
     if (!file) return;
     let reader = new FileReader();
@@ -428,84 +391,60 @@ document.getElementById("importFile").onchange = (e) => {
             let imported = JSON.parse(ev.target.result);
             if (imported.version) {
                 data = imported;
-                toast("📥 СОХРАНЕНИЕ ЗАГРУЖЕНО");
+                toast('📥 СОХРАНЕНИЕ ЗАГРУЖЕНО');
                 setTimeout(() => location.reload(), 1000);
-            } else toast("❌ НЕВЕРНЫЙ ФАЙЛ");
-        } catch(err) { toast("❌ ФАЙЛ ПОВРЕЖДЁН"); }
+            } else toast('❌ НЕВЕРНЫЙ ФАЙЛ');
+        } catch(err) { toast('❌ ФАЙЛ ПОВРЕЖДЁН'); }
     };
     reader.readAsText(file);
 };
-document.getElementById("softResetBtn").onclick = () => {
-    if (confirm("⚠ МЯГКИЙ СБРОС - сбросить прогресс, но оставить престиж?")) {
+document.getElementById('softResetBtn').onclick = () => {
+    if (confirm('⚠ МЯГКИЙ СБРОС?')) {
         data.energy = 0; data.totalTaps = 0; data.power = 1; data.auto = 0; data.crit = 0;
-        data.maxTapEnergy = 50; data.tapEnergy = 50; data.lastDaily = 0; data.lastUpgrade = 0; data.lastEnergyUpgrade = 0;
-        toast("⚠ МЯГКИЙ СБРОС");
+        data.maxTapEnergy = 50; data.tapEnergy = 50;
+        data.lastDaily = 0; data.lastUpgrade = 0; data.lastEnergyUpgrade = 0;
+        toast('⚠ МЯГКИЙ СБРОС');
         playSound();
         updateUI(); save();
     }
 };
-document.getElementById("hardResetBtn").onclick = () => {
-    if (confirm("💀 ЖЁСТКИЙ СБРОС - удалить ВСЁ?")) {
-        if (confirm("ВЫ УВЕРЕНЫ?")) {
+document.getElementById('hardResetBtn').onclick = () => {
+    if (confirm('💀 ЖЁСТКИЙ СБРОС - удалить ВСЁ?')) {
+        if (confirm('ВЫ УВЕРЕНЫ?')) {
             localStorage.clear();
             location.reload();
         }
     }
 };
 
-// ========== РЕФЕРАЛЫ ==========
-function handleReferralOnLoad() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const ref = urlParams.get('ref');
-    if (ref && !data.referredBy && !data.userId) {
-        localStorage.setItem('pendingRef', ref);
-        toast('🎁 Тебя пригласили! Войди через Telegram, чтобы получить 1000 KERP бонус!');
-    }
+// === РЕФЕРАЛЫ ===
+let refPending = new URLSearchParams(window.location.search).get('ref');
+if (refPending && !data.referredBy && !data.userId) {
+    localStorage.setItem('pendingRef', refPending);
+    toast('🎁 Тебя пригласили! Войди через Telegram!');
 }
-
-function applyReferralBonus() {
-    const pendingRef = localStorage.getItem('pendingRef');
-    if (pendingRef && !data.referredBy) {
-        let inviter = globalLeaderboard.find(p => p.refCode === pendingRef);
-        if (inviter) {
-            data.referredBy = pendingRef;
-            data.kerpBalance += 1000;
-            toast('🎉 +1000 KERP за приглашение!');
-            let inviterData = globalLeaderboard.find(p => p.id === inviter.id);
-            if (inviterData) {
-                inviterData.refEarned = (inviterData.refEarned || 0) + 500;
-                inviterData.kerpBalance = (inviterData.kerpBalance || 0) + 500;
-                if (useSupabase) saveToCloud();
-            }
-        }
-        localStorage.removeItem('pendingRef');
-        save();
-        updateUI();
-    }
+let pendingRef = localStorage.getItem('pendingRef');
+if (pendingRef && !data.referredBy && data.userId) {
+    data.referredBy = pendingRef;
+    data.kerpBalance += 1000;
+    toast('🎉 +1000 KERP за приглашение!');
+    localStorage.removeItem('pendingRef');
+    save();
+    updateUI();
 }
-
-function updateReferralUI() {
-    let refLinkInput = document.getElementById("refLink");
-    if (refLinkInput) {
-        let url = `${window.location.origin}${window.location.pathname}?ref=${data.refCode}`;
-        refLinkInput.value = url;
-    }
-    document.getElementById("refCount").innerText = data.referrals?.length || 0;
-    document.getElementById("refEarned").innerText = data.refEarned?.toFixed(5) || '0';
-}
-document.getElementById("copyRefBtn")?.addEventListener("click", () => {
-    let inp = document.getElementById("refLink");
+document.getElementById('copyRefBtn')?.addEventListener('click', () => {
+    let inp = document.getElementById('refLink');
     inp.select();
-    document.execCommand("copy");
-    toast("📋 Реферальная ссылка скопирована!");
+    document.execCommand('copy');
+    toast('📋 Реферальная ссылка скопирована!');
 });
 
-// ========== TELEGRAM LOGIN ==========
+// === TELEGRAM LOGIN ===
 function initTelegramLogin() {
-    const container = document.getElementById("telegram-login-container");
+    let container = document.getElementById('telegram-login-container');
     if (!container) return;
     container.innerHTML = '';
-    const script = document.createElement('script');
+    let script = document.createElement('script');
     script.src = 'https://telegram.org/js/telegram-widget.js?22';
     script.setAttribute('data-telegram-login', TELEGRAM_BOT_NAME);
     script.setAttribute('data-size', 'large');
@@ -516,28 +455,31 @@ function initTelegramLogin() {
     container.appendChild(script);
 }
 
-window.onTelegramAuth = function(user) {
+window.onTelegramAuth = (user) => {
     if (user && user.id) {
         data.userId = `telegram_${user.id}`;
         data.userName = `${user.first_name} ${user.last_name || ''}`.trim();
         toast(`✅ Добро пожаловать, ${data.userName}!`);
-        applyReferralBonus();
+        if (pendingRef && !data.referredBy) {
+            data.referredBy = pendingRef;
+            data.kerpBalance += 1000;
+            toast('🎉 +1000 KERP за приглашение!');
+            localStorage.removeItem('pendingRef');
+        }
         save();
         updateUI();
         if (useSupabase) saveToCloud();
     } else {
-        toast("❌ Ошибка входа через Telegram");
+        toast('❌ Ошибка входа');
     }
 };
 
 function openTab(id) {
-    document.querySelectorAll(".tab").forEach(tab => tab.classList.remove("active"));
-    document.getElementById(id).classList.add("active");
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
 }
 
-// ========== ЗАПУСК ==========
 window.onload = async () => {
-    handleReferralOnLoad();
     await initSupabase();
     updateUI();
     initTelegramLogin();
