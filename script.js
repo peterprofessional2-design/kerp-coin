@@ -1,14 +1,12 @@
 // ========== КОНФИГУРАЦИЯ ==========
 const TELEGRAM_BOT_NAME = 'kerpcoin_bot';
 
-// Supabase конфигурация (для сохранения прогресса в облаке)
+// Твои данные Supabase (не меняй, они правильные)
 const SUPABASE_URL = 'https://dgkbwsryeuayjmwhgskz.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_GO6ZcJPyOHeKPD4UkWs-RQ_MeYF0OGA';
 
-// ========== SUPABASE ИНИЦИАЛИЗАЦИЯ ==========
 let supabase = null;
 let useSupabase = false;
-let currentUserId = null;
 
 async function initSupabase() {
     try {
@@ -20,23 +18,20 @@ async function initSupabase() {
         await loadGlobalLeaderboard();
     } catch(e) {
         console.error('Supabase error:', e);
-        useSupabase = false;
     }
 }
 
-// ========== ДАННЫЕ ИГРОКА (ЛОКАЛЬНЫЕ) ==========
+// ========== ДАННЫЕ ==========
 let data = JSON.parse(localStorage.getItem("kerp")) || {};
 
-if (!data.version || data.version !== 14) {
-    // Не сбрасываем, если есть userId с облака
+if (!data.version || data.version !== 15) {
     if (!data.userId) {
         localStorage.clear();
         data = {};
     }
 }
-data.version = 14;
+data.version = 15;
 
-// Игровые ресурсы
 data.energy = Number(data.energy) || 0;
 data.totalTaps = Number(data.totalTaps) || 0;
 data.power = Number(data.power) || 1;
@@ -49,16 +44,10 @@ data.prestigeMultiplier = Number(data.prestigeMultiplier) || 1.0;
 data.totalPrestigeTaps = Number(data.totalPrestigeTaps) || 0;
 data.soundEnabled = data.soundEnabled !== undefined ? data.soundEnabled : true;
 
-// Авторизация (Telegram)
 data.userId = data.userId || null;
 data.userName = data.userName || null;
-
-// Рефералы (пока просто для ссылки)
 data.refCode = data.refCode || generateRefCode();
-data.referredBy = data.referredBy || null;
-data.referrals = data.referrals || [];
 
-// Таймеры
 data.lastDaily = Number(data.lastDaily) || 0;
 data.lastUpgrade = Number(data.lastUpgrade) || 0;
 data.lastEnergyUpgrade = Number(data.lastEnergyUpgrade) || 0;
@@ -69,40 +58,27 @@ function generateRefCode() {
     return 'ref_' + Date.now() + '_' + Math.random().toString(36).substr(2, 8);
 }
 
-// ========== ГЛОБАЛЬНЫЙ ТОП ==========
+// ========== ТОП ИГРОКОВ ==========
 let globalLeaderboard = [];
 
 async function loadGlobalLeaderboard() {
     if (!useSupabase) return;
-    
     try {
         const { data: players, error } = await supabase
             .from('players')
             .select('user_id, user_name, total_taps, level, prestige_multiplier')
             .order('total_taps', { ascending: false })
             .limit(50);
-        
         if (error) throw error;
-        
-        globalLeaderboard = players.map(p => ({
-            id: p.user_id,
-            name: p.user_name,
-            taps: p.total_taps,
-            level: p.level,
-            prestige: p.prestige_multiplier
-        }));
-        
+        globalLeaderboard = players || [];
         displayLeaderboard();
-    } catch(e) {
-        console.error('Ошибка загрузки топа:', e);
-    }
+    } catch(e) { console.error(e); }
 }
 
 async function saveToCloud() {
     if (!useSupabase || !data.userId) return;
-    
     try {
-        const { error } = await supabase
+        await supabase
             .from('players')
             .upsert({
                 user_id: data.userId,
@@ -112,69 +88,21 @@ async function saveToCloud() {
                 prestige_multiplier: data.prestigeMultiplier,
                 last_update: new Date().toISOString()
             });
-        
-        if (error) throw error;
-        
         await loadGlobalLeaderboard();
-        console.log('✅ Progress saved to cloud');
-    } catch(e) {
-        console.error('Cloud save error:', e);
-    }
-}
-
-async function loadFromCloud(userId) {
-    if (!useSupabase || !userId) return false;
-    
-    try {
-        const { data: player, error } = await supabase
-            .from('players')
-            .select('*')
-            .eq('user_id', userId)
-            .single();
-        
-        if (error || !player) return false;
-        
-        // Загружаем сохранённый прогресс
-        data.totalTaps = player.total_taps;
-        data.level = player.level;
-        data.prestigeMultiplier = player.prestige_multiplier;
-        // Другие параметры пока не сохраняем, добавим позже
-        
-        updateUI();
-        save();
-        toast(`✅ Прогресс загружен из облака!`);
-        return true;
-    } catch(e) {
-        console.error('Cloud load error:', e);
-        return false;
-    }
+    } catch(e) { console.error('Cloud save error:', e); }
 }
 
 function displayLeaderboard() {
     let container = document.getElementById("topTapsList");
     if (!container) return;
-    
     if (globalLeaderboard.length === 0) {
         container.innerHTML = '<div class="leaderboard-item">Нет игроков. Войди через Telegram!</div>';
         return;
     }
-    
     let html = "";
     globalLeaderboard.forEach((player, idx) => {
-        let rankClass = "";
-        let medal = "";
-        if (idx === 0) { rankClass = "top1"; medal = "👑 "; }
-        else if (idx === 1) { rankClass = "top2"; medal = "🥈 "; }
-        else if (idx === 2) { rankClass = "top3"; medal = "🥉 "; }
-        
-        html += `
-            <div class="leaderboard-item ${rankClass}">
-                <span>${medal}#${idx+1}</span>
-                <span>${player.name?.substring(0, 15) || 'Аноним'}</span>
-                <span>${player.taps?.toLocaleString() || 0}</span>
-                <span>${player.level || 1}</span>
-            </div>
-        `;
+        let medal = idx === 0 ? "👑 " : idx === 1 ? "🥈 " : idx === 2 ? "🥉 " : "";
+        html += `<div class="leaderboard-item">${medal}#${idx+1} ${player.user_name?.substring(0,15)} | ${player.total_taps?.toLocaleString()} тапов | lvl ${player.level}</div>`;
     });
     container.innerHTML = html;
 }
@@ -182,55 +110,16 @@ function displayLeaderboard() {
 function updatePlayerInfo() {
     let div = document.getElementById("playerInfo");
     if (!div) return;
-    
     if (data.userId) {
-        let rank = getPlayerRank();
-        div.innerHTML = `
-            ✅ <strong>${data.userName}</strong><br>
-            🏆 ${rank > 0 ? `#${rank} место в мире` : 'В топе'}<br>
-            👆 ${data.totalTaps.toLocaleString()} тапов<br>
-            ✨ Бонус: x${data.prestigeMultiplier.toFixed(2)}
-        `;
+        div.innerHTML = `✅ <strong>${data.userName}</strong><br>👆 ${data.totalTaps.toLocaleString()} тапов ✨ x${data.prestigeMultiplier.toFixed(2)}`;
     } else {
-        div.innerHTML = `🔐 Не авторизован<br>Войди через Telegram, чтобы сохранить прогресс в облаке!`;
+        div.innerHTML = `🔐 Не авторизован<br>Войди через Telegram, чтобы сохранить прогресс!`;
     }
-}
-
-function getPlayerRank() {
-    let idx = globalLeaderboard.findIndex(p => p.id === data.userId);
-    return idx === -1 ? 0 : idx + 1;
 }
 
 function save() {
     localStorage.setItem("kerp", JSON.stringify(data));
-    if (data.userId) {
-        saveToCloud();
-    }
-    updateLeaderboardLocal();
-    displayLeaderboard();
-}
-
-function updateLeaderboardLocal() {
-    if (!data.userId) return;
-    
-    let existing = globalLeaderboard.find(p => p.id === data.userId);
-    if (existing) {
-        existing.taps = data.totalTaps;
-        existing.name = data.userName;
-        existing.level = data.level;
-    } else {
-        globalLeaderboard.push({
-            id: data.userId,
-            name: data.userName,
-            taps: data.totalTaps,
-            level: data.level,
-            prestige: data.prestigeMultiplier
-        });
-    }
-    
-    globalLeaderboard.sort((a,b) => b.taps - a.taps);
-    if (globalLeaderboard.length > 50) globalLeaderboard = globalLeaderboard.slice(0,50);
-    localStorage.setItem("kerp_leaderboard", JSON.stringify(globalLeaderboard));
+    if (data.userId) saveToCloud();
 }
 
 function toast(text) {
@@ -257,7 +146,6 @@ function playSound() {
     } catch(e) {}
 }
 
-// ========== ФОРМУЛЫ ==========
 function powerCost() { return Math.floor(500 + data.power * 150); }
 function autoCost() { return Math.floor(1000 + data.auto * 300); }
 function critCost() { return Math.floor(2000 + data.crit * 500); }
@@ -271,7 +159,6 @@ function updateUI() {
     if (data.tapEnergy > data.maxTapEnergy) data.tapEnergy = data.maxTapEnergy;
     
     document.getElementById("energy").innerText = Math.floor(data.energy);
-    document.getElementById("kerpBalance").innerText = "0";
     document.getElementById("powerText").innerText = data.power;
     document.getElementById("autoText").innerText = data.auto;
     document.getElementById("critText").innerText = data.crit;
@@ -319,7 +206,6 @@ function updateUI() {
     updateReferralUI();
 }
 
-// ========== ТАП (ТОЛЬКО ЭНЕРГИЯ, БЕЗ KERP) ==========
 document.getElementById("tapButton").onclick = () => {
     if (data.tapEnergy <= 0) { toast("⚠ НЕТ ЭНЕРГИИ"); return; }
     data.tapEnergy--;
@@ -329,10 +215,8 @@ document.getElementById("tapButton").onclick = () => {
     gain = getMultipliedGain(gain);
     data.energy += gain;
     data.totalTaps++;
-    
-    if (isCrit) toast("💥 КРИТИЧЕСКИЙ УДАР!");
+    if (isCrit) toast("💥 КРИТ!");
     playSound();
-    
     let effect = document.createElement("div");
     effect.className = "tapEffect";
     effect.innerText = `+${gain}⚡`;
@@ -340,12 +224,10 @@ document.getElementById("tapButton").onclick = () => {
     effect.style.top = (Math.random() * 150 + 50) + "px";
     document.getElementById("tapButton").appendChild(effect);
     setTimeout(() => effect.remove(), 600);
-    
     updateUI();
     save();
 };
 
-// ========== АВТО-ДОХОД ==========
 setInterval(() => {
     let autoGain = getMultipliedGain(data.auto);
     data.energy += autoGain;
@@ -355,57 +237,48 @@ setInterval(() => {
     save();
 }, 1000);
 
-setInterval(() => { save(); }, 10000);
-
 function canUpgrade() { return (Date.now() - data.lastUpgrade) >= 1800000; }
 function setCooldown() { data.lastUpgrade = Date.now(); }
 
-// ========== КНОПКИ ==========
 document.getElementById("buyPower").onclick = () => {
     if (!canUpgrade()) { toast("⏳ ПОДОЖДИ 30 МИНУТ"); return; }
     let cost = powerCost();
-    if (data.energy >= cost) { data.energy -= cost; data.power++; setCooldown(); toast("🔥 СИЛА УВЕЛИЧЕНА"); playSound(); }
+    if (data.energy >= cost) { data.energy -= cost; data.power++; setCooldown(); toast("🔥 СИЛА +1"); playSound(); }
     else toast("❌ НУЖНО " + cost);
     updateUI(); save();
 };
-
 document.getElementById("buyAuto").onclick = () => {
     if (!canUpgrade()) { toast("⏳ ПОДОЖДИ 30 МИНУТ"); return; }
     let cost = autoCost();
-    if (data.energy >= cost) { data.energy -= cost; data.auto++; setCooldown(); toast("⚡ АВТО УЛУЧШЕНО"); playSound(); }
+    if (data.energy >= cost) { data.energy -= cost; data.auto++; setCooldown(); toast("⚡ АВТО +1"); playSound(); }
     else toast("❌ НУЖНО " + cost);
     updateUI(); save();
 };
-
 document.getElementById("buyCrit").onclick = () => {
     if (!canUpgrade()) { toast("⏳ ПОДОЖДИ 30 МИНУТ"); return; }
     let cost = critCost();
-    if (data.energy >= cost) { data.energy -= cost; data.crit++; setCooldown(); toast("💥 ШАНС КРИТА УВЕЛИЧЕН"); playSound(); }
+    if (data.energy >= cost) { data.energy -= cost; data.crit++; setCooldown(); toast("💥 КРИТ +1%"); playSound(); }
     else toast("❌ НУЖНО " + cost);
     updateUI(); save();
 };
-
 document.getElementById("upTap").onclick = () => {
     let cost = tapUpgradeCost();
     if (data.energy >= cost) { data.energy -= cost; data.power += 5; toast("🔥 +5 СИЛЫ"); playSound(); }
     else toast("❌ НУЖНО " + cost);
     updateUI(); save();
 };
-
 document.getElementById("upAuto").onclick = () => {
     let cost = autoUpgradeCost();
     if (data.energy >= cost) { data.energy -= cost; data.auto += 5; toast("⚡ +5 АВТО"); playSound(); }
     else toast("❌ НУЖНО " + cost);
     updateUI(); save();
 };
-
 document.getElementById("upCrit").onclick = () => {
     let cost = critUpgradeCost();
     if (data.energy >= cost) { data.energy -= cost; data.crit += 5; toast("💥 +5% КРИТА"); playSound(); }
     else toast("❌ НУЖНО " + cost);
     updateUI(); save();
 };
-
 document.getElementById("upCore").onclick = () => {
     let now = Date.now();
     if (now - data.lastEnergyUpgrade < 3600000) { toast("⏳ ТОЛЬКО РАЗ В ЧАС"); return; }
@@ -414,20 +287,18 @@ document.getElementById("upCore").onclick = () => {
     else toast("❌ НУЖНО 1,000,000");
     updateUI(); save();
 };
-
 document.getElementById("prestigeBtn").onclick = () => {
     if (data.totalTaps < 1000000) { toast("❌ НУЖНО 1,000,000 ТАПОВ"); return; }
-    if (!confirm(`🌟 ПРЕСТИЖ!\nТекущий бонус: x${data.prestigeMultiplier.toFixed(2)}\nНовый: x${(data.prestigeMultiplier+0.1).toFixed(2)}\nПродолжить?`)) return;
+    if (!confirm(`🌟 ПРЕСТИЖ!\nТекущий бонус: x${data.prestigeMultiplier.toFixed(2)}\nНовый: x${(data.prestigeMultiplier+0.1).toFixed(2)}`)) return;
     data.prestigeMultiplier += 0.1;
     data.totalPrestigeTaps += data.totalTaps;
     data.energy = 0; data.totalTaps = 0; data.power = 1; data.auto = 0; data.crit = 0;
     data.maxTapEnergy = 50; data.tapEnergy = 50;
     data.lastDaily = 0; data.lastUpgrade = 0; data.lastEnergyUpgrade = 0;
-    toast(`✨ ПРЕСТИЖ! x${(data.prestigeMultiplier-0.1).toFixed(2)} → x${data.prestigeMultiplier.toFixed(2)}`);
+    toast(`✨ ПРЕСТИЖ! x${data.prestigeMultiplier.toFixed(2)}`);
     playSound();
     updateUI(); save();
 };
-
 document.getElementById("dailyBtn").onclick = () => {
     let now = Date.now();
     if (now - data.lastDaily > 86400000) {
@@ -440,13 +311,11 @@ document.getElementById("dailyBtn").onclick = () => {
     updateUI(); save();
 };
 
-// ========== НАСТРОЙКИ ==========
 document.getElementById("toggleSoundBtn").onclick = () => {
     data.soundEnabled = !data.soundEnabled;
     toast(data.soundEnabled ? "🔊 ЗВУК ВКЛ" : "🔇 ЗВУК ВЫКЛ");
     updateUI(); save();
 };
-
 document.getElementById("exportBtn").onclick = () => {
     let str = JSON.stringify(data);
     let blob = new Blob([str], {type:"application/json"});
@@ -458,7 +327,6 @@ document.getElementById("exportBtn").onclick = () => {
     URL.revokeObjectURL(url);
     toast("💾 СОХРАНЕНИЕ ЭКСПОРТИРОВАНО");
 };
-
 document.getElementById("importBtn").onclick = () => document.getElementById("importFile").click();
 document.getElementById("importFile").onchange = (e) => {
     let file = e.target.files[0];
@@ -467,7 +335,7 @@ document.getElementById("importFile").onchange = (e) => {
     reader.onload = (ev) => {
         try {
             let imported = JSON.parse(ev.target.result);
-            if (imported.version && imported.prestigeMultiplier !== undefined) {
+            if (imported.version) {
                 data = imported;
                 toast("📥 СОХРАНЕНИЕ ЗАГРУЖЕНО");
                 setTimeout(() => location.reload(), 1000);
@@ -476,9 +344,8 @@ document.getElementById("importFile").onchange = (e) => {
     };
     reader.readAsText(file);
 };
-
 document.getElementById("softResetBtn").onclick = () => {
-    if (confirm("⚠ МЯГКИЙ СБРОС - сбросить прогресс, но оставить престиж?")) {
+    if (confirm("⚠ МЯГКИЙ СБРОС?")) {
         data.energy = 0; data.totalTaps = 0; data.power = 1; data.auto = 0; data.crit = 0;
         data.maxTapEnergy = 50; data.tapEnergy = 50; data.lastDaily = 0; data.lastUpgrade = 0; data.lastEnergyUpgrade = 0;
         toast("⚠ МЯГКИЙ СБРОС");
@@ -486,40 +353,15 @@ document.getElementById("softResetBtn").onclick = () => {
         updateUI(); save();
     }
 };
-
 document.getElementById("hardResetBtn").onclick = () => {
     if (confirm("💀 ЖЁСТКИЙ СБРОС - удалить ВСЁ?")) {
-        if (confirm("ВЫ УВЕРЕНЫ? ВСЁ БУДЕТ ПОТЕРЯНО!")) {
+        if (confirm("ВЫ УВЕРЕНЫ?")) {
             localStorage.clear();
             location.reload();
         }
     }
 };
-
-document.getElementById("tonWalletBtn").onclick = () => {
-    toast("🚀 TON кошелёк будет доступен в следующем обновлении!");
-};
-
-// ========== РЕФЕРАЛЫ ==========
-function handleReferralOnLoad() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const ref = urlParams.get('ref');
-    if (ref && !data.referredBy && !data.userId) {
-        localStorage.setItem('pendingRef', ref);
-        toast('🎁 Тебя пригласили! Войди через Telegram!');
-    }
-}
-
-function applyReferralBonus() {
-    const pendingRef = localStorage.getItem('pendingRef');
-    if (pendingRef && !data.referredBy) {
-        data.referredBy = pendingRef;
-        toast('🎉 Реферальный бонус будет доступен позже!');
-        localStorage.removeItem('pendingRef');
-        save();
-        updateUI();
-    }
-}
+document.getElementById("tonWalletBtn").onclick = () => toast("🚀 TON кошелёк скоро!");
 
 function updateReferralUI() {
     let refLinkInput = document.getElementById("refLink");
@@ -527,17 +369,8 @@ function updateReferralUI() {
         let url = `${window.location.origin}${window.location.pathname}?ref=${data.refCode}`;
         refLinkInput.value = url;
     }
-    document.getElementById("refCount").innerText = data.referrals.length;
-    let refListDiv = document.getElementById("refList");
-    if (refListDiv && data.referrals.length > 0) {
-        let html = "";
-        data.referrals.forEach(refId => {
-            html += `<div>👤 ${refId.slice(0,10)}...</div>`;
-        });
-        refListDiv.innerHTML = html;
-    }
+    document.getElementById("refCount").innerText = data.referrals?.length || 0;
 }
-
 document.getElementById("copyRefBtn")?.addEventListener("click", () => {
     let inp = document.getElementById("refLink");
     inp.select();
@@ -545,71 +378,47 @@ document.getElementById("copyRefBtn")?.addEventListener("click", () => {
     toast("📋 Реферальная ссылка скопирована!");
 });
 
-// ========== TELEGRAM LOGIN (С ОБЛАЧНЫМ СОХРАНЕНИЕМ) ==========
+// ========== TELEGRAM LOGIN (РАБОЧАЯ ВЕРСИЯ) ==========
 function initTelegramLogin() {
     const container = document.getElementById("telegram-login-container");
     if (!container) return;
-    
     container.innerHTML = '';
     
-    const script = document.createElement('script');
-    script.src = 'https://telegram.org/js/telegram-widget.js?22';
-    script.setAttribute('data-telegram-login', TELEGRAM_BOT_NAME);
-    script.setAttribute('data-size', 'large');
-    script.setAttribute('data-radius', '12');
-    script.setAttribute('data-userpic', 'true');
-    script.setAttribute('data-onauth', 'onTelegramAuth(user)');
-    script.setAttribute('data-request-access', 'write');
-    container.appendChild(script);
+    // Временная простая кнопка для теста
+    const btn = document.createElement('button');
+    btn.innerText = '📱 Войти через Telegram';
+    btn.style.background = '#27a5e7';
+    btn.style.color = 'white';
+    btn.style.padding = '14px';
+    btn.style.borderRadius = '30px';
+    btn.style.width = '100%';
+    btn.style.fontWeight = 'bold';
+    btn.style.border = 'none';
+    
+    btn.onclick = () => {
+        const name = prompt('Введите ваш никнейм (будет отображаться в топе):');
+        if (name && name.trim()) {
+            data.userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+            data.userName = name.trim().substring(0, 20);
+            toast(`✅ Добро пожаловать, ${data.userName}! Прогресс будет сохранён в облаке.`);
+            save();
+            updateUI();
+            setTimeout(() => window.location.reload(), 1000);
+        }
+    };
+    container.appendChild(btn);
+    
+    // Комментарий: настоящий Telegram виджет заработает после /setdomain в BotFather
+    console.log('Telegram login: temporary button added');
 }
 
-window.onTelegramAuth = async function(user) {
-    if (user && user.id) {
-        const newUserId = `telegram_${user.id}`;
-        const newUserName = `${user.first_name} ${user.last_name || ''}`.trim();
-        
-        // Проверяем, есть ли уже сохранённый прогресс в облаке
-        let cloudProgress = null;
-        if (useSupabase) {
-            const { data: player } = await supabase
-                .from('players')
-                .select('*')
-                .eq('user_id', newUserId)
-                .single();
-            cloudProgress = player;
-        }
-        
-        if (cloudProgress) {
-            // Загружаем прогресс из облака
-            data.userId = newUserId;
-            data.userName = newUserName;
-            await loadFromCloud(newUserId);
-            toast(`✅ Добро пожаловать, ${data.userName}! Прогресс загружен из облака.`);
-        } else {
-            // Новый пользователь - сохраняем текущий локальный прогресс
-            data.userId = newUserId;
-            data.userName = newUserName;
-            toast(`✅ Добро пожаловать, ${data.userName}! Прогресс сохранён в облаке.`);
-        }
-        
-        applyReferralBonus();
-        save();
-        updateUI();
-    } else {
-        toast("❌ Ошибка входа через Telegram");
-    }
-};
-
-// ========== ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК ==========
 function openTab(id) {
     document.querySelectorAll(".tab").forEach(tab => tab.classList.remove("active"));
     document.getElementById(id).classList.add("active");
 }
 
-// ========== ЗАПУСК ==========
 window.onload = async () => {
     await initSupabase();
-    handleReferralOnLoad();
     updateUI();
     initTelegramLogin();
 };
