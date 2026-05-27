@@ -1,12 +1,15 @@
 // ========== КОНФИГУРАЦИЯ ==========
 const TELEGRAM_BOT_NAME = 'kerpcoin_bot';
 
-// Supabase (твои данные)
+// Supabase
 const SUPABASE_URL = 'https://dgkbwsryeuayjmwhgskz.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_GO6ZcJPyOHeKPD4UkWs-RQ_MeYF0OGA';
 
 let supabase = null;
 let useSupabase = false;
+
+// TON Connect
+let tonConnectUI = null;
 
 async function initSupabase() {
     try {
@@ -22,19 +25,91 @@ async function initSupabase() {
     }
 }
 
+// ========== TON COIN WALLET ==========
+async function initTonConnect() {
+    try {
+        // Загружаем CSS
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.css';
+        document.head.appendChild(link);
+        
+        // Загружаем JS
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js';
+        script.async = true;
+        script.onload = () => {
+            if (window.TonConnectUI) {
+                tonConnectUI = new window.TonConnectUI.TonConnectUI({
+                    manifestUrl: 'https://raw.githubusercontent.com/ton-connect/demo-dapp/main/public/tonconnect-manifest.json',
+                    buttonRootId: 'ton-connect-wallet'
+                });
+                
+                // Слушаем изменения статуса кошелька
+                tonConnectUI.onStatusChange((wallet) => {
+                    if (wallet) {
+                        const address = wallet.account.address;
+                        const shortAddress = address.slice(0, 6) + '...' + address.slice(-4);
+                        document.getElementById('ton-wallet-status').innerHTML = `
+                            <div style="background:rgba(0,255,0,0.1); padding:10px; border-radius:15px;">
+                                ✅ Кошелёк: ${shortAddress}<br>
+                                <button id="tonDisconnectBtn" style="margin-top:8px; background:#ff4444;">Отключить</button>
+                            </div>
+                        `;
+                        document.getElementById('kerp-balance').style.display = 'block';
+                        data.walletAddress = address;
+                        save();
+                        checkKerpBalance(address);
+                        
+                        // Кнопка отключения
+                        document.getElementById('tonDisconnectBtn')?.addEventListener('click', () => {
+                            tonConnectUI.disconnect();
+                        });
+                    } else {
+                        document.getElementById('ton-wallet-status').innerHTML = `<button id="ton-connect-wallet">🚀 ПОДКЛЮЧИТЬ TON КОШЕЛЁК</button>`;
+                        document.getElementById('kerp-balance').style.display = 'none';
+                        data.walletAddress = null;
+                        save();
+                        // Переинициализируем кнопку
+                        initTonConnect();
+                    }
+                });
+            } else {
+                console.error('TonConnectUI not loaded');
+                document.getElementById('ton-wallet-status').innerHTML = `<div style="color:#aaa;">⏳ Загрузка TON кошелька...</div>`;
+            }
+        };
+        script.onerror = () => {
+            console.error('Failed to load TonConnect');
+            document.getElementById('ton-wallet-status').innerHTML = `<div style="color:#ff4444;">❌ Ошибка загрузки TON кошелька</div>`;
+        };
+        document.body.appendChild(script);
+    } catch(e) {
+        console.error('TonConnect init error:', e);
+        document.getElementById('ton-wallet-status').innerHTML = `<div style="color:#ff4444;">❌ Ошибка: ${e.message}</div>`;
+    }
+}
+
+async function checkKerpBalance(address) {
+    // TODO: Позже подключим запрос к TON API для реального баланса KERP токена
+    // Пока показываем баланс из игры
+    document.getElementById('kerp-balance-amount').innerText = data.kerpBalance?.toFixed(5) || '0';
+}
+
 // ========== ДАННЫЕ ==========
 let data = JSON.parse(localStorage.getItem("kerp")) || {};
 
-if (!data.version || data.version !== 16) {
+if (!data.version || data.version !== 18) {
     if (!data.userId) {
         localStorage.clear();
         data = {};
     }
 }
-data.version = 16;
+data.version = 18;
 
 data.energy = Number(data.energy) || 0;
 data.totalTaps = Number(data.totalTaps) || 0;
+data.kerpBalance = Number(data.kerpBalance) || 0;
 data.power = Number(data.power) || 1;
 data.auto = Number(data.auto) || 0;
 data.crit = Number(data.crit) || 0;
@@ -47,7 +122,10 @@ data.soundEnabled = data.soundEnabled !== undefined ? data.soundEnabled : true;
 
 data.userId = data.userId || null;
 data.userName = data.userName || null;
+data.walletAddress = data.walletAddress || null;
 data.refCode = data.refCode || generateRefCode();
+data.referrals = data.referrals || [];
+data.refEarned = data.refEarned || 0;
 
 data.lastDaily = Number(data.lastDaily) || 0;
 data.lastUpgrade = Number(data.lastUpgrade) || 0;
@@ -63,21 +141,18 @@ function generateRefCode() {
 let globalLeaderboard = [];
 
 async function loadGlobalLeaderboard() {
-    console.log('Loading leaderboard...');
     if (!useSupabase) return;
     try {
         const { data: players, error } = await supabase
             .from('players')
-            .select('user_id, user_name, total_taps, level, prestige_multiplier')
+            .select('user_id, user_name, total_taps, level, prestige_multiplier, kerp_balance')
             .order('total_taps', { ascending: false })
             .limit(50);
         if (error) throw error;
         globalLeaderboard = players || [];
-        console.log('Loaded players:', globalLeaderboard.length);
         displayLeaderboard();
     } catch(e) {
         console.error('Load error:', e);
-        document.getElementById("topTapsList").innerHTML = '<div class="leaderboard-item">Ошибка загрузки топа</div>';
     }
 }
 
@@ -92,10 +167,11 @@ async function saveToCloud() {
                 total_taps: data.totalTaps,
                 level: data.level,
                 prestige_multiplier: data.prestigeMultiplier,
+                kerp_balance: data.kerpBalance,
+                wallet_address: data.walletAddress,
                 last_update: new Date().toISOString()
             });
         if (error) throw error;
-        console.log('Saved to cloud');
         await loadGlobalLeaderboard();
     } catch(e) {
         console.error('Cloud save error:', e);
@@ -119,7 +195,7 @@ function displayLeaderboard() {
     let html = "";
     globalLeaderboard.forEach((player, idx) => {
         let medal = idx === 0 ? "👑 " : idx === 1 ? "🥈 " : idx === 2 ? "🥉 " : "";
-        html += `<div class="leaderboard-item">${medal}#${idx+1} ${player.user_name?.substring(0, 15)} | ${player.total_taps?.toLocaleString()} тапов</div>`;
+        html += `<div class="leaderboard-item">${medal}#${idx+1} ${player.user_name?.substring(0, 15)} | ${player.total_taps?.toLocaleString()} тапов | 🪙 ${(player.kerp_balance || 0).toFixed(5)}</div>`;
     });
     container.innerHTML = html;
 }
@@ -128,9 +204,12 @@ function updatePlayerInfo() {
     let div = document.getElementById("playerInfo");
     if (!div) return;
     if (data.userId) {
-        div.innerHTML = `✅ <strong>${data.userName}</strong><br>👆 ${data.totalTaps.toLocaleString()} тапов ✨ x${data.prestigeMultiplier.toFixed(2)}`;
+        div.innerHTML = `✅ <strong>${data.userName}</strong><br>👆 ${data.totalTaps.toLocaleString()} тапов ✨ x${data.prestigeMultiplier.toFixed(2)}<br>🪙 ${data.kerpBalance.toFixed(5)} KERP`;
+        if (data.walletAddress) {
+            div.innerHTML += `<br>🔗 ${data.walletAddress.slice(0,6)}...${data.walletAddress.slice(-4)}`;
+        }
     } else {
-        div.innerHTML = `🔐 Не авторизован<br>Нажми кнопку ниже, чтобы войти через Telegram!`;
+        div.innerHTML = `🔐 Не авторизован<br>Нажми кнопку "Войти через Telegram" ниже!`;
     }
 }
 
@@ -163,7 +242,34 @@ function playSound() {
     } catch(e) {}
 }
 
-// ========== ФОРМУЛЫ ==========
+// ========== KERP НАЧИСЛЕНИЕ ==========
+const KERP_PER_TAP = 0.00001;
+
+function addKerp(amount) {
+    let gain = amount * data.prestigeMultiplier;
+    data.kerpBalance += gain;
+    
+    // Реферальный бонус (10% пригласившему)
+    if (data.referredBy) {
+        let inviter = globalLeaderboard.find(p => p.refCode === data.referredBy);
+        if (inviter) {
+            let refBonus = gain * 0.1;
+            inviter.refEarned = (inviter.refEarned || 0) + refBonus;
+            inviter.kerpBalance = (inviter.kerpBalance || 0) + refBonus;
+            if (useSupabase) saveToCloud();
+        }
+    }
+    
+    updateKerpDisplay();
+}
+
+function updateKerpDisplay() {
+    document.getElementById("kerpBalance").innerText = data.kerpBalance.toFixed(5);
+    if (data.walletAddress) {
+        document.getElementById('kerp-balance-amount').innerText = data.kerpBalance.toFixed(5);
+    }
+}
+
 function powerCost() { return Math.floor(500 + data.power * 150); }
 function autoCost() { return Math.floor(1000 + data.auto * 300); }
 function critCost() { return Math.floor(2000 + data.crit * 500); }
@@ -198,7 +304,8 @@ function updateUI() {
         💥 Крит: ${data.crit}%<br>
         👆 Тапов: ${data.totalTaps.toLocaleString()}<br>
         🔋 Макс. энергия: ${data.maxTapEnergy}<br>
-        ✨ Престиж: x${data.prestigeMultiplier.toFixed(2)}
+        ✨ Престиж: x${data.prestigeMultiplier.toFixed(2)}<br>
+        🪙 KERP: ${data.kerpBalance.toFixed(5)}
     `;
     
     let need = 1000000;
@@ -222,6 +329,7 @@ function updateUI() {
     
     updatePlayerInfo();
     updateReferralUI();
+    updateKerpDisplay();
 }
 
 // ========== ТАП ==========
@@ -234,11 +342,16 @@ document.getElementById("tapButton").onclick = () => {
     gain = getMultipliedGain(gain);
     data.energy += gain;
     data.totalTaps++;
-    if (isCrit) toast("💥 КРИТ!");
+    
+    // Начисляем KERP за тап
+    addKerp(KERP_PER_TAP);
+    
+    if (isCrit) toast("💥 КРИТ! +" + (KERP_PER_TAP * data.prestigeMultiplier).toFixed(8) + " KERP");
     playSound();
+    
     let effect = document.createElement("div");
     effect.className = "tapEffect";
-    effect.innerText = `+${gain}⚡`;
+    effect.innerText = `+${gain}⚡ +${(KERP_PER_TAP * data.prestigeMultiplier).toFixed(8)}🪙`;
     effect.style.left = (Math.random() * 150 + 50) + "px";
     effect.style.top = (Math.random() * 150 + 50) + "px";
     document.getElementById("tapButton").appendChild(effect);
@@ -252,6 +365,10 @@ setInterval(() => {
     data.energy += autoGain;
     data.tapEnergy += data.regen;
     if (data.tapEnergy > data.maxTapEnergy) data.tapEnergy = data.maxTapEnergy;
+    if (data.auto > 0) {
+        let kerpAuto = KERP_PER_TAP * (data.auto / 10) * data.prestigeMultiplier;
+        addKerp(kerpAuto);
+    }
     updateUI();
     save();
 }, 1000);
@@ -323,9 +440,11 @@ document.getElementById("dailyBtn").onclick = () => {
     let now = Date.now();
     if (now - data.lastDaily > 86400000) {
         let rewardEnergy = getMultipliedGain(50000 + data.level * 5000);
+        let rewardKerp = (1000 + data.level * 100) * data.prestigeMultiplier;
         data.energy += rewardEnergy;
+        addKerp(rewardKerp);
         data.lastDaily = now;
-        toast(`🎁 +${rewardEnergy} ⚡`);
+        toast(`🎁 +${rewardEnergy}⚡ +${rewardKerp.toFixed(5)}🪙`);
         playSound();
     } else toast("⏳ ЕЩЁ НЕ ГОТОВО");
     updateUI(); save();
@@ -366,7 +485,7 @@ document.getElementById("importFile").onchange = (e) => {
     reader.readAsText(file);
 };
 document.getElementById("softResetBtn").onclick = () => {
-    if (confirm("⚠ МЯГКИЙ СБРОС?")) {
+    if (confirm("⚠ МЯГКИЙ СБРОС - сбросить прогресс, но оставить престиж?")) {
         data.energy = 0; data.totalTaps = 0; data.power = 1; data.auto = 0; data.crit = 0;
         data.maxTapEnergy = 50; data.tapEnergy = 50; data.lastDaily = 0; data.lastUpgrade = 0; data.lastEnergyUpgrade = 0;
         toast("⚠ МЯГКИЙ СБРОС");
@@ -382,9 +501,38 @@ document.getElementById("hardResetBtn").onclick = () => {
         }
     }
 };
-document.getElementById("tonWalletBtn").onclick = () => toast("🚀 TON кошелёк скоро!");
 
 // ========== РЕФЕРАЛЫ ==========
+function handleReferralOnLoad() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const ref = urlParams.get('ref');
+    if (ref && !data.referredBy && !data.userId) {
+        localStorage.setItem('pendingRef', ref);
+        toast('🎁 Тебя пригласили! Войди через Telegram, чтобы получить 1000 KERP бонус!');
+    }
+}
+
+function applyReferralBonus() {
+    const pendingRef = localStorage.getItem('pendingRef');
+    if (pendingRef && !data.referredBy) {
+        let inviter = globalLeaderboard.find(p => p.refCode === pendingRef);
+        if (inviter) {
+            data.referredBy = pendingRef;
+            data.kerpBalance += 1000;
+            toast('🎉 +1000 KERP за приглашение!');
+            let inviterData = globalLeaderboard.find(p => p.id === inviter.id);
+            if (inviterData) {
+                inviterData.refEarned = (inviterData.refEarned || 0) + 500;
+                inviterData.kerpBalance = (inviterData.kerpBalance || 0) + 500;
+                if (useSupabase) saveToCloud();
+            }
+        }
+        localStorage.removeItem('pendingRef');
+        save();
+        updateUI();
+    }
+}
+
 function updateReferralUI() {
     let refLinkInput = document.getElementById("refLink");
     if (refLinkInput) {
@@ -392,6 +540,7 @@ function updateReferralUI() {
         refLinkInput.value = url;
     }
     document.getElementById("refCount").innerText = data.referrals?.length || 0;
+    document.getElementById("refEarned").innerText = data.refEarned?.toFixed(5) || '0';
 }
 document.getElementById("copyRefBtn")?.addEventListener("click", () => {
     let inp = document.getElementById("refLink");
@@ -400,59 +549,32 @@ document.getElementById("copyRefBtn")?.addEventListener("click", () => {
     toast("📋 Реферальная ссылка скопирована!");
 });
 
-// ========== TELEGRAM LOGIN (НАСТОЯЩИЙ ВИДЖЕТ) ==========
+// ========== TELEGRAM LOGIN ==========
 function initTelegramLogin() {
     const container = document.getElementById("telegram-login-container");
     if (!container) return;
     container.innerHTML = '';
     
-    // Настоящий Telegram виджет
     const script = document.createElement('script');
     script.src = 'https://telegram.org/js/telegram-widget.js?22';
     script.setAttribute('data-telegram-login', TELEGRAM_BOT_NAME);
     script.setAttribute('data-size', 'large');
     script.setAttribute('data-radius', '12');
     script.setAttribute('data-userpic', 'true');
-    script.setAttribute('data-onauth', 'onTelegramAuth(user)');
+    script.setAttribute('data-onauth', 'onTelegramAuth');
     script.setAttribute('data-request-access', 'write');
     container.appendChild(script);
-    
-    console.log('Telegram widget initialized');
 }
 
-window.onTelegramAuth = async function(user) {
-    console.log('Telegram auth:', user);
+window.onTelegramAuth = function(user) {
     if (user && user.id) {
-        const newUserId = `telegram_${user.id}`;
-        const newUserName = `${user.first_name} ${user.last_name || ''}`.trim();
-        
-        // Проверяем, есть ли уже в облаке
-        let existingPlayer = null;
-        if (useSupabase) {
-            const { data } = await supabase
-                .from('players')
-                .select('*')
-                .eq('user_id', newUserId)
-                .single();
-            existingPlayer = data;
-        }
-        
-        data.userId = newUserId;
-        data.userName = newUserName;
-        
-        if (existingPlayer) {
-            // Загружаем сохранённый прогресс
-            data.totalTaps = existingPlayer.total_taps;
-            data.level = existingPlayer.level;
-            data.prestigeMultiplier = existingPlayer.prestige_multiplier;
-            toast(`✅ С возвращением, ${data.userName}! Прогресс загружен из облака.`);
-        } else {
-            toast(`✅ Добро пожаловать, ${data.userName}!`);
-        }
-        
+        data.userId = `telegram_${user.id}`;
+        data.userName = `${user.first_name} ${user.last_name || ''}`.trim();
+        toast(`✅ Добро пожаловать, ${data.userName}!`);
+        applyReferralBonus();
         save();
         updateUI();
-        if (useSupabase) await saveToCloud();
+        if (useSupabase) saveToCloud();
     } else {
         toast("❌ Ошибка входа через Telegram");
     }
@@ -465,7 +587,9 @@ function openTab(id) {
 
 // ========== ЗАПУСК ==========
 window.onload = async () => {
+    handleReferralOnLoad();
     await initSupabase();
     updateUI();
     initTelegramLogin();
+    initTonConnect();
 };
