@@ -15,7 +15,7 @@
         <div class="logo">⚡ KERP</div>
         <div class="stats-panel">
             <div class="energyBox">⚡ <span id="energy">0</span></div>
-            <div class="kerpBox">🪙 <span id="kerpBalance">0</span></div>
+            <div class="kerpBox">🪙 <span id="kerpBalance">0.00000</span></div>
         </div>
     </div>
 
@@ -169,7 +169,7 @@
                     <span>#</span>
                     <span>Игрок</span>
                     <span>Тапы</span>
-                    <span>Уровень</span>
+                    <span>KERP</span>
                 </div>
                 <div id="topTapsList" class="leaderboard-list">Загрузка...</div>
                 <div class="tip">Авторизуйся через Telegram, чтобы попасть в топ и сохранить прогресс!</div>
@@ -181,13 +181,14 @@
             <h2>👥 РЕФЕРАЛЫ</h2>
             <div class="card">
                 <h3>Твоя реферальная ссылка</h3>
-                <p>Приглашай друзей → бонусы будут позже!</p>
+                <p>Приглашай друзей → получай <span class="highlight">10% от их KERP</span> навсегда!</p>
                 <div class="ref-link-container">
                     <input type="text" id="refLink" readonly>
                     <button id="copyRefBtn">📋</button>
                 </div>
                 <div class="ref-stats">
                     <div>👥 Приглашённых: <span id="refCount">0</span></div>
+                    <div>💰 Заработано: <span id="refEarned">0</span> KERP</div>
                 </div>
                 <div id="refList" class="ref-list">Пока никого нет</div>
             </div>
@@ -195,11 +196,15 @@
 
         <!-- NEWS -->
         <div id="news" class="tab">
-            <h2>📢 НОВОСТИ</h2>
+            <h2>📢 КАК ЗАРАБОТАТЬ</h2>
             <div class="card">
                 <div class="news-item">
                     <span class="news-icon">🔥</span>
-                    <div>Тапай, набирай энергию и улучшай персонажа!</div>
+                    <div>Каждый тап даёт <strong>0.00001 KERP</strong> × бонус престижа</div>
+                </div>
+                <div class="news-item">
+                    <span class="news-icon">⚡</span>
+                    <div>Энергия восстанавливается 1/сек</div>
                 </div>
                 <div class="news-item">
                     <span class="news-icon">🌟</span>
@@ -207,15 +212,15 @@
                 </div>
                 <div class="news-item">
                     <span class="news-icon">👥</span>
-                    <div>Реферальная система скоро будет активна</div>
+                    <div>Рефералы — 10% от дохода друга навсегда</div>
                 </div>
                 <div class="news-item">
                     <span class="news-icon">💎</span>
-                    <div>В будущем: вывод KERP токенов на кошелёк!</div>
+                    <div>Подключи TON кошелёк для вывода KERP</div>
                 </div>
                 <div class="news-item">
                     <span class="news-icon">🔐</span>
-                    <div>Войди через Telegram, чтобы сохранить прогресс в облаке!</div>
+                    <div>Войди через Telegram, чтобы сохранить прогресс в облаке</div>
                 </div>
             </div>
         </div>
@@ -231,9 +236,13 @@
                     <div id="loginStatus" style="margin-top:10px; font-size:12px;"></div>
                 </div>
                 <div class="card">
-                    <h3>💰 TON КОШЕЛЁК (СКОРО)</h3>
-                    <p>Будет доступен в следующих обновлениях</p>
-                    <button id="tonWalletBtn" style="background:#0098ea; opacity:0.6;">🚀 СКОРО</button>
+                    <h3>💰 TON КОШЕЛЁК</h3>
+                    <div id="ton-wallet-status">
+                        <button id="ton-connect-wallet">🚀 ПОДКЛЮЧИТЬ TON КОШЕЛЁК</button>
+                    </div>
+                    <div id="kerp-balance" style="display:none; margin-top:10px;">
+                        🪙 <span id="kerp-balance-amount">0</span> KERP в кошельке
+                    </div>
                 </div>
                 <div class="card">
                     <h3>🔊 ЗВУК</h3>
@@ -247,6 +256,10 @@
                     <h3>📥 ИМПОРТ</h3>
                     <button id="importBtn">📥 ЗАГРУЗИТЬ</button>
                     <input type="file" id="importFile" style="display:none">
+                </div>
+                <div class="card">
+                    <h3>🎮 АВТОСОХРАНЕНИЕ</h3>
+                    <p>Автосохранение каждые 10 секунд</p>
                 </div>
                 <div class="card">
                     <h3>🗑 СБРОС</h3>
