@@ -1,7 +1,7 @@
 // ========== КОНФИГУРАЦИЯ ==========
 const TELEGRAM_BOT_NAME = 'kerpcoin_bot';
 
-// Твои данные Supabase (не меняй, они правильные)
+// Supabase (твои данные)
 const SUPABASE_URL = 'https://dgkbwsryeuayjmwhgskz.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_GO6ZcJPyOHeKPD4UkWs-RQ_MeYF0OGA';
 
@@ -18,19 +18,20 @@ async function initSupabase() {
         await loadGlobalLeaderboard();
     } catch(e) {
         console.error('Supabase error:', e);
+        useSupabase = false;
     }
 }
 
 // ========== ДАННЫЕ ==========
 let data = JSON.parse(localStorage.getItem("kerp")) || {};
 
-if (!data.version || data.version !== 15) {
+if (!data.version || data.version !== 16) {
     if (!data.userId) {
         localStorage.clear();
         data = {};
     }
 }
-data.version = 15;
+data.version = 16;
 
 data.energy = Number(data.energy) || 0;
 data.totalTaps = Number(data.totalTaps) || 0;
@@ -62,6 +63,7 @@ function generateRefCode() {
 let globalLeaderboard = [];
 
 async function loadGlobalLeaderboard() {
+    console.log('Loading leaderboard...');
     if (!useSupabase) return;
     try {
         const { data: players, error } = await supabase
@@ -71,14 +73,18 @@ async function loadGlobalLeaderboard() {
             .limit(50);
         if (error) throw error;
         globalLeaderboard = players || [];
+        console.log('Loaded players:', globalLeaderboard.length);
         displayLeaderboard();
-    } catch(e) { console.error(e); }
+    } catch(e) {
+        console.error('Load error:', e);
+        document.getElementById("topTapsList").innerHTML = '<div class="leaderboard-item">Ошибка загрузки топа</div>';
+    }
 }
 
 async function saveToCloud() {
     if (!useSupabase || !data.userId) return;
     try {
-        await supabase
+        const { error } = await supabase
             .from('players')
             .upsert({
                 user_id: data.userId,
@@ -88,21 +94,32 @@ async function saveToCloud() {
                 prestige_multiplier: data.prestigeMultiplier,
                 last_update: new Date().toISOString()
             });
+        if (error) throw error;
+        console.log('Saved to cloud');
         await loadGlobalLeaderboard();
-    } catch(e) { console.error('Cloud save error:', e); }
+    } catch(e) {
+        console.error('Cloud save error:', e);
+    }
 }
 
 function displayLeaderboard() {
     let container = document.getElementById("topTapsList");
     if (!container) return;
-    if (globalLeaderboard.length === 0) {
-        container.innerHTML = '<div class="leaderboard-item">Нет игроков. Войди через Telegram!</div>';
+    
+    if (!useSupabase) {
+        container.innerHTML = '<div class="leaderboard-item">⏳ Подключение к облаку...</div>';
         return;
     }
+    
+    if (globalLeaderboard.length === 0) {
+        container.innerHTML = '<div class="leaderboard-item">😴 Пока никого нет. Войди первым!</div>';
+        return;
+    }
+    
     let html = "";
     globalLeaderboard.forEach((player, idx) => {
         let medal = idx === 0 ? "👑 " : idx === 1 ? "🥈 " : idx === 2 ? "🥉 " : "";
-        html += `<div class="leaderboard-item">${medal}#${idx+1} ${player.user_name?.substring(0,15)} | ${player.total_taps?.toLocaleString()} тапов | lvl ${player.level}</div>`;
+        html += `<div class="leaderboard-item">${medal}#${idx+1} ${player.user_name?.substring(0, 15)} | ${player.total_taps?.toLocaleString()} тапов</div>`;
     });
     container.innerHTML = html;
 }
@@ -113,7 +130,7 @@ function updatePlayerInfo() {
     if (data.userId) {
         div.innerHTML = `✅ <strong>${data.userName}</strong><br>👆 ${data.totalTaps.toLocaleString()} тапов ✨ x${data.prestigeMultiplier.toFixed(2)}`;
     } else {
-        div.innerHTML = `🔐 Не авторизован<br>Войди через Telegram, чтобы сохранить прогресс!`;
+        div.innerHTML = `🔐 Не авторизован<br>Нажми кнопку ниже, чтобы войти через Telegram!`;
     }
 }
 
@@ -146,6 +163,7 @@ function playSound() {
     } catch(e) {}
 }
 
+// ========== ФОРМУЛЫ ==========
 function powerCost() { return Math.floor(500 + data.power * 150); }
 function autoCost() { return Math.floor(1000 + data.auto * 300); }
 function critCost() { return Math.floor(2000 + data.crit * 500); }
@@ -206,6 +224,7 @@ function updateUI() {
     updateReferralUI();
 }
 
+// ========== ТАП ==========
 document.getElementById("tapButton").onclick = () => {
     if (data.tapEnergy <= 0) { toast("⚠ НЕТ ЭНЕРГИИ"); return; }
     data.tapEnergy--;
@@ -240,6 +259,7 @@ setInterval(() => {
 function canUpgrade() { return (Date.now() - data.lastUpgrade) >= 1800000; }
 function setCooldown() { data.lastUpgrade = Date.now(); }
 
+// ========== КНОПКИ ==========
 document.getElementById("buyPower").onclick = () => {
     if (!canUpgrade()) { toast("⏳ ПОДОЖДИ 30 МИНУТ"); return; }
     let cost = powerCost();
@@ -311,6 +331,7 @@ document.getElementById("dailyBtn").onclick = () => {
     updateUI(); save();
 };
 
+// ========== НАСТРОЙКИ ==========
 document.getElementById("toggleSoundBtn").onclick = () => {
     data.soundEnabled = !data.soundEnabled;
     toast(data.soundEnabled ? "🔊 ЗВУК ВКЛ" : "🔇 ЗВУК ВЫКЛ");
@@ -363,6 +384,7 @@ document.getElementById("hardResetBtn").onclick = () => {
 };
 document.getElementById("tonWalletBtn").onclick = () => toast("🚀 TON кошелёк скоро!");
 
+// ========== РЕФЕРАЛЫ ==========
 function updateReferralUI() {
     let refLinkInput = document.getElementById("refLink");
     if (refLinkInput) {
@@ -378,45 +400,70 @@ document.getElementById("copyRefBtn")?.addEventListener("click", () => {
     toast("📋 Реферальная ссылка скопирована!");
 });
 
-// ========== TELEGRAM LOGIN (РАБОЧАЯ ВЕРСИЯ) ==========
+// ========== TELEGRAM LOGIN (НАСТОЯЩИЙ ВИДЖЕТ) ==========
 function initTelegramLogin() {
     const container = document.getElementById("telegram-login-container");
     if (!container) return;
     container.innerHTML = '';
     
-    // Временная простая кнопка для теста
-    const btn = document.createElement('button');
-    btn.innerText = '📱 Войти через Telegram';
-    btn.style.background = '#27a5e7';
-    btn.style.color = 'white';
-    btn.style.padding = '14px';
-    btn.style.borderRadius = '30px';
-    btn.style.width = '100%';
-    btn.style.fontWeight = 'bold';
-    btn.style.border = 'none';
+    // Настоящий Telegram виджет
+    const script = document.createElement('script');
+    script.src = 'https://telegram.org/js/telegram-widget.js?22';
+    script.setAttribute('data-telegram-login', TELEGRAM_BOT_NAME);
+    script.setAttribute('data-size', 'large');
+    script.setAttribute('data-radius', '12');
+    script.setAttribute('data-userpic', 'true');
+    script.setAttribute('data-onauth', 'onTelegramAuth(user)');
+    script.setAttribute('data-request-access', 'write');
+    container.appendChild(script);
     
-    btn.onclick = () => {
-        const name = prompt('Введите ваш никнейм (будет отображаться в топе):');
-        if (name && name.trim()) {
-            data.userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-            data.userName = name.trim().substring(0, 20);
-            toast(`✅ Добро пожаловать, ${data.userName}! Прогресс будет сохранён в облаке.`);
-            save();
-            updateUI();
-            setTimeout(() => window.location.reload(), 1000);
-        }
-    };
-    container.appendChild(btn);
-    
-    // Комментарий: настоящий Telegram виджет заработает после /setdomain в BotFather
-    console.log('Telegram login: temporary button added');
+    console.log('Telegram widget initialized');
 }
+
+window.onTelegramAuth = async function(user) {
+    console.log('Telegram auth:', user);
+    if (user && user.id) {
+        const newUserId = `telegram_${user.id}`;
+        const newUserName = `${user.first_name} ${user.last_name || ''}`.trim();
+        
+        // Проверяем, есть ли уже в облаке
+        let existingPlayer = null;
+        if (useSupabase) {
+            const { data } = await supabase
+                .from('players')
+                .select('*')
+                .eq('user_id', newUserId)
+                .single();
+            existingPlayer = data;
+        }
+        
+        data.userId = newUserId;
+        data.userName = newUserName;
+        
+        if (existingPlayer) {
+            // Загружаем сохранённый прогресс
+            data.totalTaps = existingPlayer.total_taps;
+            data.level = existingPlayer.level;
+            data.prestigeMultiplier = existingPlayer.prestige_multiplier;
+            toast(`✅ С возвращением, ${data.userName}! Прогресс загружен из облака.`);
+        } else {
+            toast(`✅ Добро пожаловать, ${data.userName}!`);
+        }
+        
+        save();
+        updateUI();
+        if (useSupabase) await saveToCloud();
+    } else {
+        toast("❌ Ошибка входа через Telegram");
+    }
+};
 
 function openTab(id) {
     document.querySelectorAll(".tab").forEach(tab => tab.classList.remove("active"));
     document.getElementById(id).classList.add("active");
 }
 
+// ========== ЗАПУСК ==========
 window.onload = async () => {
     await initSupabase();
     updateUI();
