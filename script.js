@@ -430,25 +430,28 @@ document.getElementById('hardResetBtn').onclick = () => {
 
 document.getElementById('tonSoonBtn').onclick = () => toast('⏳ TON кошелёк скоро');
 
-// ========== TELEGRAM LOGIN (ИСПРАВЛЕННЫЙ) ==========
+// ========== TELEGRAM LOGIN (ПОЛНОСТЬЮ ИСПРАВЛЕННЫЙ) ==========
 function initTelegramLogin() {
     let container = document.getElementById('telegram-login-container');
     if (!container) return;
     
-    // Проверяем, уже есть сохранённый пользователь
+    // Проверяем, есть ли уже сохранённый пользователь
     const savedUserId = localStorage.getItem('last_karp_user');
     if (savedUserId) {
         currentUserId = savedUserId;
         data = loadUserData(currentUserId);
         updateUI();
         startTimers();
-        document.getElementById('telegram-login-container').style.display = 'none';
-        document.getElementById('userInfo').innerHTML = `✅ <strong>${data.userName || 'Игрок'}</strong><br><button id="logoutBtnTG" style="background:#ff4444;">Выйти</button>`;
+        container.style.display = 'none';
+        document.getElementById('userInfo').innerHTML = `✅ <strong>${data.userName || 'Игрок'}</strong><br><button id="logoutBtnTG" style="background:#ff4444;">🚪 Выйти</button>`;
         document.getElementById('logoutBtn').style.display = 'block';
-        document.getElementById('logoutBtnTG').onclick = () => {
-            localStorage.removeItem('last_karp_user');
-            location.reload();
-        };
+        const logoutBtn = document.getElementById('logoutBtnTG');
+        if (logoutBtn) {
+            logoutBtn.onclick = () => {
+                localStorage.removeItem('last_karp_user');
+                location.reload();
+            };
+        }
         return;
     }
     
@@ -473,24 +476,22 @@ function initTelegramLogin() {
 
 // Глобальная функция для Telegram
 window.onTelegramAuth = function(user) {
-    console.log('Telegram auth:', user);
+    console.log('Telegram auth success:', user);
     if (user && user.id) {
-        // Сохраняем ID пользователя
         currentUserId = 'telegram_' + user.id;
         localStorage.setItem('last_karp_user', currentUserId);
         
-        // Загружаем или создаём данные
         data = loadUserData(currentUserId);
         data.userName = user.first_name + (user.last_name ? ' ' + user.last_name : '');
         saveUserData();
         
-        // Обновляем интерфейс
         updateUI();
         startTimers();
         
-        // Скрываем кнопку входа и показываем информацию о пользователе
-        document.getElementById('telegram-login-container').style.display = 'none';
-        document.getElementById('userInfo').innerHTML = `✅ <strong>${data.userName}</strong><br><button id="logoutBtnTG" style="background:#ff4444;">Выйти</button>`;
+        const container = document.getElementById('telegram-login-container');
+        if (container) container.style.display = 'none';
+        
+        document.getElementById('userInfo').innerHTML = `✅ <strong>${data.userName}</strong><br><button id="logoutBtnTG" style="background:#ff4444;">🚪 Выйти</button>`;
         document.getElementById('logoutBtn').style.display = 'block';
         
         const logoutBtn = document.getElementById('logoutBtnTG');
@@ -503,6 +504,7 @@ window.onTelegramAuth = function(user) {
         
         toast(`✅ Добро пожаловать, ${user.first_name}!`);
     } else {
+        console.error('Telegram auth failed:', user);
         toast('❌ Ошибка входа через Telegram');
     }
 };
