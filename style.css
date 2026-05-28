@@ -1,297 +1,537 @@
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    -webkit-tap-highlight-color: transparent;
-}
+// ========== НАСТРОЙКИ ==========
+const TELEGRAM_BOT_NAME = 'kerpcoin_bot'; // ЗАМЕНИ НА СВОЕГО БОТА (БЕЗ @)
 
-body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: #0a0a0a;
-    color: white;
-    overflow: hidden;
-    position: fixed;
-    width: 100%;
-    height: 100%;
-}
+// ========== ДАННЫЕ ==========
+let currentUserId = null;
+let data = null;
 
-.bg {
-    position: fixed;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(135deg, #0a0a0a 0%, #1a0033 100%);
-    z-index: -1;
-}
-
-#toast {
-    position: fixed;
-    top: 80px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0, 0, 0, 0.95);
-    backdrop-filter: blur(10px);
-    padding: 12px 24px;
-    border-radius: 40px;
-    border: 1px solid rgba(0, 255, 204, 0.3);
-    color: #00ffcc;
-    font-weight: bold;
-    font-size: 14px;
-    white-space: nowrap;
-    z-index: 1000;
-    opacity: 0;
-    transition: 0.2s;
-    pointer-events: none;
-}
-
-.topbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 16px;
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(10px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.logo {
-    font-size: 24px;
-    font-weight: bold;
-    background: linear-gradient(135deg, #b366ff, #00ffcc);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-}
-
-.energyBox {
-    background: rgba(255, 255, 255, 0.08);
-    padding: 6px 14px;
-    border-radius: 30px;
-    font-size: 18px;
-    font-weight: bold;
-}
-
-.tapBarBox {
-    padding: 10px 16px;
-}
-
-.tapBar {
-    width: 100%;
-    height: 8px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 10px;
-    overflow: hidden;
-}
-
-#tapBarFill {
-    height: 100%;
-    width: 100%;
-    background: linear-gradient(90deg, #00ffcc, #8a2be2);
-    transition: width 0.2s ease;
-}
-
-#tapEnergyText {
-    font-size: 11px;
-    color: #888;
-    margin-top: 6px;
-    text-align: center;
-}
-
-.content {
-    padding: 16px;
-    padding-bottom: 80px;
-    height: calc(100% - 110px);
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-}
-
-.tab {
-    display: none;
-    animation: fadeIn 0.3s ease;
-}
-
-.tab.active {
-    display: block;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-h2 {
-    font-size: 20px;
-    margin-bottom: 16px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-h2::before {
-    content: '';
-    width: 4px;
-    height: 20px;
-    background: linear-gradient(135deg, #b366ff, #00ffcc);
-    border-radius: 4px;
-}
-
-#tapButton {
-    width: 220px;
-    height: 220px;
-    border-radius: 50%;
-    border: none;
-    background: linear-gradient(135deg, #8a2be2, #00ffcc);
-    cursor: pointer;
-    margin: 20px auto;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 0 40px rgba(138, 43, 226, 0.5);
-}
-
-#tapButton:active {
-    transform: scale(0.94);
-    transition: transform 0.05s;
-}
-
-@media (hover: hover) {
-    #tapButton:hover {
-        transform: scale(1.05);
-        box-shadow: 0 0 60px rgba(138, 43, 226, 0.8);
-        transition: transform 0.2s, box-shadow 0.2s;
+function loadUserData(userId) {
+    const saved = localStorage.getItem(`karp_${userId}`);
+    if (saved) {
+        return JSON.parse(saved);
+    } else {
+        return {
+            energy: 0,
+            totalTaps: 0,
+            power: 1,
+            auto: 0,
+            crit: 0,
+            maxTapEnergy: 50,
+            tapEnergy: 50,
+            regen: 1,
+            prestigeMultiplier: 1.0,
+            totalPrestigeTaps: 0,
+            soundEnabled: true,
+            lastDaily: 0,
+            lastPowerBuy: 0,
+            lastAutoBuy: 0,
+            lastCritBuy: 0,
+            lastTapUpgrade: 0,
+            lastAutoUpgrade: 0,
+            lastCritUpgrade: 0,
+            lastEnergyUpgrade: 0,
+            userName: null
+        };
     }
 }
 
-.tap-coin { font-size: 70px; animation: float 2s ease infinite; }
-.tap-text { font-size: 20px; font-weight: bold; margin-top: 5px; }
-
-@keyframes float {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-5px); }
+function saveUserData() {
+    if (!currentUserId) return;
+    localStorage.setItem(`karp_${currentUserId}`, JSON.stringify(data));
 }
 
-.tapTitle { text-align: center; font-size: 14px; color: #aaa; margin-top: 5px; }
-.totalText { text-align: center; font-size: 14px; color: #00ffcc; margin-top: 15px; }
-.levelText { text-align: center; font-size: 24px; font-weight: bold; color: #ffd700; margin-top: 5px; }
-.prestigeBonusText { text-align: center; font-size: 12px; color: #ff8800; margin-top: 4px; }
-
-.statsMini {
-    display: flex;
-    justify-content: center;
-    gap: 12px;
-    margin-top: 25px;
+// ========== ТАЙМЕРЫ ==========
+function getRemaining(lastTime, cooldownMinutes = 30) {
+    const remaining = (lastTime + cooldownMinutes * 60000) - Date.now();
+    return remaining > 0 ? remaining : 0;
 }
 
-.miniCard {
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 20px;
-    padding: 12px 20px;
-    text-align: center;
-    min-width: 80px;
+function formatTime(ms) {
+    if (ms <= 0) return null;
+    const minutes = Math.floor(ms / 60000);
+    const seconds = Math.floor((ms % 60000) / 1000);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
-.mini-icon { font-size: 24px; margin-bottom: 5px; }
-.mini-label { font-size: 11px; color: #aaa; }
-.mini-value { font-size: 24px; font-weight: bold; color: #00ffcc; }
+let timerInterval = null;
 
-.grid { display: flex; flex-direction: column; gap: 12px; }
-
-.card {
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 20px;
-    padding: 16px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+function startTimers() {
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+        updateAllTimers();
+    }, 1000);
 }
 
-.card-icon { font-size: 32px; margin-bottom: 8px; }
-.card h3 { font-size: 18px; margin-bottom: 5px; }
-.card p { font-size: 12px; color: #aaa; margin-bottom: 10px; }
-.price { font-size: 14px; color: #ffd700; margin-bottom: 12px; font-weight: bold; }
-.tip { font-size: 10px; color: #666; margin-top: 8px; }
-.timer-text { font-size: 11px; color: #ff8800; margin-top: 6px; }
-
-button {
-    padding: 12px 20px;
-    border: none;
-    border-radius: 40px;
-    font-weight: bold;
-    font-size: 14px;
-    cursor: pointer;
-    background: rgba(255, 255, 255, 0.1);
-    color: white;
-    width: 100%;
+function updateAllTimers() {
+    if (!data) return;
+    
+    updateTimerUI('buyPower', getRemaining(data.lastPowerBuy), 'powerTimer', 'КУПИТЬ');
+    updateTimerUI('buyAuto', getRemaining(data.lastAutoBuy), 'autoTimer', 'КУПИТЬ');
+    updateTimerUI('buyCrit', getRemaining(data.lastCritBuy), 'critTimer', 'КУПИТЬ');
+    updateTimerUI('upTap', getRemaining(data.lastTapUpgrade), 'tapUpgradeTimer', 'УЛУЧШИТЬ');
+    updateTimerUI('upAuto', getRemaining(data.lastAutoUpgrade), 'autoUpgradeTimer', 'УЛУЧШИТЬ');
+    updateTimerUI('upCrit', getRemaining(data.lastCritUpgrade), 'critUpgradeTimer', 'УЛУЧШИТЬ');
+    updateTimerUI('upCore', getRemaining(data.lastEnergyUpgrade, 60), 'coreTimer', 'УЛУЧШИТЬ');
 }
 
-button:active { transform: scale(0.96); opacity: 0.8; }
-button:disabled { opacity: 0.5; cursor: not-allowed; }
-#prestigeBtn { background: linear-gradient(135deg, #ff8800, #ff5500); margin-top: 10px; }
-#dailyBtn { background: linear-gradient(135deg, #0099ff, #0066cc); }
-
-.bottomMenu {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    display: flex;
-    justify-content: space-around;
-    background: rgba(0, 0, 0, 0.9);
-    backdrop-filter: blur(15px);
-    padding: 8px 12px;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    z-index: 100;
+function updateTimerUI(buttonId, remaining, timerSpanId, originalText) {
+    const btn = document.getElementById(buttonId);
+    const timerSpan = document.getElementById(timerSpanId);
+    if (!btn) return;
+    
+    if (remaining > 0) {
+        btn.disabled = true;
+        const timeStr = formatTime(remaining);
+        btn.innerHTML = `⏳ ${timeStr}`;
+        if (timerSpan) timerSpan.innerHTML = `⏳ Доступно через ${timeStr}`;
+    } else {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        if (timerSpan) timerSpan.innerHTML = '';
+    }
 }
 
-.bottomMenu button {
-    width: 48px;
-    height: 48px;
-    font-size: 22px;
-    background: transparent;
-    padding: 0;
+// ========== ВСПОМОГАТЕЛЬНЫЕ ==========
+function toast(text) {
+    let el = document.getElementById('toast');
+    el.innerText = text;
+    el.style.opacity = 1;
+    setTimeout(() => el.style.opacity = 0, 1700);
 }
 
-.bottomMenu button:active { background: rgba(255, 255, 255, 0.1); }
-
-.prestige-card { text-align: center; }
-.prestige-icon { font-size: 48px; margin-bottom: 10px; }
-.prestige-need { font-size: 14px; color: #ffd700; margin: 10px 0; }
-.progress-bar { width: 100%; height: 10px; background: rgba(255, 255, 255, 0.1); border-radius: 10px; overflow: hidden; margin: 10px 0; }
-.progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #00ffcc, #8a2be2); border-radius: 10px; transition: width 0.3s ease; }
-.progress-text { font-size: 12px; color: #aaa; }
-
-.daily-card { text-align: center; }
-.daily-icon { font-size: 48px; margin-bottom: 10px; }
-.timer { margin-top: 12px; font-size: 14px; color: #00ffcc; }
-
-.news-item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
-.news-icon { font-size: 24px; }
-
-.stats-card { font-size: 14px; line-height: 1.8; }
-#telegram-login-container { display: flex; justify-content: center; margin: 10px 0; }
-iframe { max-width: 100%; border-radius: 30px; }
-
-.tapEffect {
-    position: absolute;
-    color: #00ffcc;
-    font-size: 20px;
-    font-weight: bold;
-    animation: flyUp 0.6s ease-out forwards;
-    pointer-events: none;
+function playSound() {
+    if (!data.soundEnabled) return;
+    try {
+        let ctx = new (window.AudioContext || window.webkitAudioContext)();
+        let osc = ctx.createOscillator();
+        let gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = 800;
+        gain.gain.value = 0.1;
+        osc.start();
+        gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + 0.3);
+        osc.stop(ctx.currentTime + 0.3);
+        setTimeout(() => ctx.close(), 400);
+    } catch(e) {}
 }
 
-@keyframes flyUp {
-    0% { opacity: 1; transform: translateY(0) scale(1); }
-    100% { opacity: 0; transform: translateY(-60px) scale(1.2); }
+function getMultipliedGain(base) {
+    return Math.floor(base * data.prestigeMultiplier);
 }
 
-::-webkit-scrollbar { width: 3px; }
-::-webkit-scrollbar-track { background: #1a1a1a; }
-::-webkit-scrollbar-thumb { background: #8a2be2; border-radius: 10px; }
+function powerCost() { return Math.floor(500 + data.power * 150); }
+function autoCost() { return Math.floor(1000 + data.auto * 300); }
+function critCost() { return Math.floor(2000 + data.crit * 500); }
+function tapUpgradeCost() { return Math.floor(50000 + Math.floor(data.power/10)*25000); }
+function autoUpgradeCost() { return Math.floor(80000 + Math.floor(data.auto/5)*40000); }
+function critUpgradeCost() { return Math.floor(120000 + Math.floor(data.crit/5)*60000); }
 
-@media (max-width: 480px) {
-    .logo { font-size: 20px; }
-    #tapButton { width: 180px; height: 180px; }
-    .tap-coin { font-size: 50px; }
-    .miniCard { padding: 8px 12px; min-width: 65px; }
-    .mini-value { font-size: 20px; }
-    .bottomMenu button { width: 42px; height: 42px; font-size: 18px; }
+function updateUI() {
+    if (!data) return;
+    
+    data.level = Math.floor(data.totalTaps / 5000) + 1;
+    if (data.tapEnergy > data.maxTapEnergy) data.tapEnergy = data.maxTapEnergy;
+    
+    document.getElementById('energy').innerText = Math.floor(data.energy);
+    document.getElementById('powerText').innerText = data.power;
+    document.getElementById('autoText').innerText = data.auto;
+    document.getElementById('critText').innerText = data.crit;
+    document.getElementById('totalTapText').innerText = data.totalTaps.toLocaleString();
+    document.getElementById('levelText').innerText = data.level;
+    document.getElementById('prestigeMultiplier').innerText = data.prestigeMultiplier.toFixed(2);
+    document.getElementById('powerCost').innerHTML = `💰 ${powerCost()}`;
+    document.getElementById('autoCost').innerHTML = `💰 ${autoCost()}`;
+    document.getElementById('critCost').innerHTML = `💰 ${critCost()}`;
+    document.getElementById('tapUpgradeCost').innerHTML = `💰 ${tapUpgradeCost()}`;
+    document.getElementById('autoUpgradeCost').innerHTML = `💰 ${autoUpgradeCost()}`;
+    document.getElementById('critUpgradeCost').innerHTML = `💰 ${critUpgradeCost()}`;
+    
+    document.getElementById('statsText').innerHTML = `
+        🏆 Уровень: ${data.level}<br>
+        ⚡ Энергия: ${Math.floor(data.energy)}<br>
+        🔥 Сила: ${data.power}<br>
+        ⚡ Авто: ${data.auto}/сек<br>
+        💥 Крит: ${data.crit}%<br>
+        👆 Тапов: ${data.totalTaps.toLocaleString()}<br>
+        🔋 Макс. энергия: ${data.maxTapEnergy}<br>
+        ✨ Престиж: x${data.prestigeMultiplier.toFixed(2)}
+    `;
+    
+    let need = 1000000;
+    let prog = Math.min(100, (data.totalTaps / need) * 100);
+    document.getElementById('prestigeProgress').innerHTML = `${data.totalTaps.toLocaleString()} / 1,000,000 (${Math.floor(prog)}%)`;
+    document.getElementById('prestigeProgressFill').style.width = prog + '%';
+    document.getElementById('prestigeReward').innerHTML = `🎁 Следующий престиж: x${(data.prestigeMultiplier+0.1).toFixed(2)}`;
+    document.getElementById('tapBarFill').style.width = (data.tapEnergy/data.maxTapEnergy*100)+'%';
+    document.getElementById('tapEnergyText').innerHTML = `${Math.floor(data.tapEnergy)} / ${data.maxTapEnergy}`;
+    
+    let diff = 86400000 - (Date.now() - data.lastDaily);
+    if (diff <= 0) document.getElementById('dailyTimer').innerHTML = '🎁 ГОТОВО';
+    else {
+        let h = Math.floor(diff/3600000);
+        let m = Math.floor((diff%3600000)/60000);
+        document.getElementById('dailyTimer').innerHTML = `⏳ ${h}ч ${m}м`;
+    }
+    
+    let soundBtn = document.getElementById('toggleSoundBtn');
+    if (soundBtn) soundBtn.innerHTML = data.soundEnabled ? '🔊 ВКЛ' : '🔇 ВЫКЛ';
+    
+    saveUserData();
 }
+
+// ========== ТАП ==========
+document.getElementById('tapButton').onclick = () => {
+    if (!currentUserId) { toast('⚠️ Войдите через Telegram (вкладка Настройки)'); return; }
+    if (data.tapEnergy <= 0) { toast('⚠️ НЕТ ЭНЕРГИИ'); return; }
+    data.tapEnergy--;
+    let gain = data.power;
+    let isCrit = false;
+    if (Math.random() < data.crit/100) { gain *= 3; isCrit = true; }
+    gain = getMultipliedGain(gain);
+    data.energy += gain;
+    data.totalTaps++;
+    if (isCrit) toast('💥 КРИТ!');
+    playSound();
+    
+    let effect = document.createElement('div');
+    effect.className = 'tapEffect';
+    effect.innerText = `+${gain}⚡`;
+    effect.style.left = (Math.random() * 150 + 50) + 'px';
+    effect.style.top = (Math.random() * 150 + 50) + 'px';
+    document.getElementById('tapButton').appendChild(effect);
+    setTimeout(() => effect.remove(), 600);
+    updateUI();
+};
+
+// ========== АВТО ==========
+setInterval(() => {
+    if (!data) return;
+    let autoGain = getMultipliedGain(data.auto);
+    data.energy += autoGain;
+    data.tapEnergy += data.regen;
+    if (data.tapEnergy > data.maxTapEnergy) data.tapEnergy = data.maxTapEnergy;
+    updateUI();
+}, 1000);
+
+// ========== МАГАЗИН ==========
+document.getElementById('buyPower').onclick = () => {
+    if (!currentUserId) { toast('⚠️ Войдите через Telegram'); return; }
+    let remaining = getRemaining(data.lastPowerBuy);
+    if (remaining > 0) { toast(`⏳ Подожди ${formatTime(remaining)}`); return; }
+    let cost = powerCost();
+    if (data.energy >= cost) {
+        data.energy -= cost;
+        data.power++;
+        data.lastPowerBuy = Date.now();
+        toast('🔥 СИЛА +1');
+        playSound();
+        updateUI();
+        updateAllTimers();
+    } else toast('❌ НУЖНО ' + cost);
+};
+
+document.getElementById('buyAuto').onclick = () => {
+    if (!currentUserId) { toast('⚠️ Войдите через Telegram'); return; }
+    let remaining = getRemaining(data.lastAutoBuy);
+    if (remaining > 0) { toast(`⏳ Подожди ${formatTime(remaining)}`); return; }
+    let cost = autoCost();
+    if (data.energy >= cost) {
+        data.energy -= cost;
+        data.auto++;
+        data.lastAutoBuy = Date.now();
+        toast('⚡ АВТО +1');
+        playSound();
+        updateUI();
+        updateAllTimers();
+    } else toast('❌ НУЖНО ' + cost);
+};
+
+document.getElementById('buyCrit').onclick = () => {
+    if (!currentUserId) { toast('⚠️ Войдите через Telegram'); return; }
+    let remaining = getRemaining(data.lastCritBuy);
+    if (remaining > 0) { toast(`⏳ Подожди ${formatTime(remaining)}`); return; }
+    let cost = critCost();
+    if (data.energy >= cost) {
+        data.energy -= cost;
+        data.crit++;
+        data.lastCritBuy = Date.now();
+        toast('💥 КРИТ +1%');
+        playSound();
+        updateUI();
+        updateAllTimers();
+    } else toast('❌ НУЖНО ' + cost);
+};
+
+// ========== УЛУЧШЕНИЯ ==========
+document.getElementById('upTap').onclick = () => {
+    if (!currentUserId) { toast('⚠️ Войдите через Telegram'); return; }
+    let remaining = getRemaining(data.lastTapUpgrade);
+    if (remaining > 0) { toast(`⏳ Подожди ${formatTime(remaining)}`); return; }
+    let cost = tapUpgradeCost();
+    if (data.energy >= cost) {
+        data.energy -= cost;
+        data.power += 5;
+        data.lastTapUpgrade = Date.now();
+        toast('🔥 +5 СИЛЫ');
+        playSound();
+        updateUI();
+        updateAllTimers();
+    } else toast('❌ НУЖНО ' + cost);
+};
+
+document.getElementById('upAuto').onclick = () => {
+    if (!currentUserId) { toast('⚠️ Войдите через Telegram'); return; }
+    let remaining = getRemaining(data.lastAutoUpgrade);
+    if (remaining > 0) { toast(`⏳ Подожди ${formatTime(remaining)}`); return; }
+    let cost = autoUpgradeCost();
+    if (data.energy >= cost) {
+        data.energy -= cost;
+        data.auto += 5;
+        data.lastAutoUpgrade = Date.now();
+        toast('⚡ +5 АВТО');
+        playSound();
+        updateUI();
+        updateAllTimers();
+    } else toast('❌ НУЖНО ' + cost);
+};
+
+document.getElementById('upCrit').onclick = () => {
+    if (!currentUserId) { toast('⚠️ Войдите через Telegram'); return; }
+    let remaining = getRemaining(data.lastCritUpgrade);
+    if (remaining > 0) { toast(`⏳ Подожди ${formatTime(remaining)}`); return; }
+    let cost = critUpgradeCost();
+    if (data.energy >= cost) {
+        data.energy -= cost;
+        data.crit += 5;
+        data.lastCritUpgrade = Date.now();
+        toast('💥 +5% КРИТА');
+        playSound();
+        updateUI();
+        updateAllTimers();
+    } else toast('❌ НУЖНО ' + cost);
+};
+
+document.getElementById('upCore').onclick = () => {
+    if (!currentUserId) { toast('⚠️ Войдите через Telegram'); return; }
+    let remaining = getRemaining(data.lastEnergyUpgrade, 60);
+    if (remaining > 0) { toast(`⏳ Подожди ${formatTime(remaining)}`); return; }
+    if (data.energy >= 1000000) {
+        data.energy -= 1000000;
+        data.maxTapEnergy += 10;
+        data.tapEnergy += 10;
+        data.lastEnergyUpgrade = Date.now();
+        toast('🔋 +10 МАКС. ЭНЕРГИИ');
+        playSound();
+        updateUI();
+        updateAllTimers();
+    } else toast('❌ НУЖНО 1,000,000');
+};
+
+// ========== ПРЕСТИЖ ==========
+document.getElementById('prestigeBtn').onclick = () => {
+    if (!currentUserId) { toast('⚠️ Войдите через Telegram'); return; }
+    if (data.totalTaps < 1000000) { toast('❌ НУЖНО 1,000,000 ТАПОВ'); return; }
+    if (!confirm(`🌟 ПРЕСТИЖ!\nТекущий бонус: x${data.prestigeMultiplier.toFixed(2)}\nНовый: x${(data.prestigeMultiplier+0.1).toFixed(2)}`)) return;
+    data.prestigeMultiplier += 0.1;
+    data.totalPrestigeTaps += data.totalTaps;
+    data.energy = 0; data.totalTaps = 0; data.power = 1; data.auto = 0; data.crit = 0;
+    data.maxTapEnergy = 50; data.tapEnergy = 50;
+    data.lastDaily = 0; data.lastPowerBuy = 0; data.lastAutoBuy = 0; data.lastCritBuy = 0;
+    data.lastTapUpgrade = 0; data.lastAutoUpgrade = 0; data.lastCritUpgrade = 0; data.lastEnergyUpgrade = 0;
+    toast(`✨ ПРЕСТИЖ! x${data.prestigeMultiplier.toFixed(2)}`);
+    playSound();
+    updateUI();
+    updateAllTimers();
+};
+
+// ========== ЕЖЕДНЕВКА ==========
+document.getElementById('dailyBtn').onclick = () => {
+    if (!currentUserId) { toast('⚠️ Войдите через Telegram'); return; }
+    let now = Date.now();
+    if (now - data.lastDaily > 86400000) {
+        let rewardEnergy = 50000 + data.level * 5000;
+        rewardEnergy = Math.floor(rewardEnergy * data.prestigeMultiplier);
+        data.energy += rewardEnergy;
+        data.lastDaily = now;
+        toast(`🎁 +${rewardEnergy} ⚡`);
+        playSound();
+        updateUI();
+    } else {
+        let remaining = 86400000 - (now - data.lastDaily);
+        let hours = Math.floor(remaining / 3600000);
+        let minutes = Math.floor((remaining % 3600000) / 60000);
+        toast(`⏳ Через ${hours}ч ${minutes}м`);
+    }
+};
+
+// ========== НАСТРОЙКИ ==========
+document.getElementById('toggleSoundBtn').onclick = () => {
+    if (!data) return;
+    data.soundEnabled = !data.soundEnabled;
+    toast(data.soundEnabled ? '🔊 ЗВУК ВКЛ' : '🔇 ЗВУК ВЫКЛ');
+    updateUI();
+};
+
+document.getElementById('exportBtn').onclick = () => {
+    if (!currentUserId) { toast('⚠️ Войдите через Telegram'); return; }
+    let blob = new Blob([JSON.stringify(data)], {type:'application/json'});
+    let a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `karp_save_${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast('💾 СОХРАНЕНИЕ ЭКСПОРТИРОВАНО');
+};
+
+document.getElementById('importBtn').onclick = () => document.getElementById('importFile').click();
+document.getElementById('importFile').onchange = (e) => {
+    if (!currentUserId) { toast('⚠️ Войдите через Telegram'); return; }
+    let file = e.target.files[0];
+    if (!file) return;
+    let reader = new FileReader();
+    reader.onload = (ev) => {
+        try {
+            let imported = JSON.parse(ev.target.result);
+            if (imported.power !== undefined) {
+                data = imported;
+                toast('📥 СОХРАНЕНИЕ ЗАГРУЖЕНО');
+                updateUI();
+                updateAllTimers();
+            } else toast('❌ НЕВЕРНЫЙ ФАЙЛ');
+        } catch(err) { toast('❌ ФАЙЛ ПОВРЕЖДЁН'); }
+    };
+    reader.readAsText(file);
+};
+
+document.getElementById('softResetBtn').onclick = () => {
+    if (!currentUserId) { toast('⚠️ Войдите через Telegram'); return; }
+    if (confirm('⚠ МЯГКИЙ СБРОС? Сбросить прогресс, но оставить престиж?')) {
+        data.energy = 0; data.totalTaps = 0; data.power = 1; data.auto = 0; data.crit = 0;
+        data.maxTapEnergy = 50; data.tapEnergy = 50;
+        data.lastDaily = 0; data.lastPowerBuy = 0; data.lastAutoBuy = 0; data.lastCritBuy = 0;
+        data.lastTapUpgrade = 0; data.lastAutoUpgrade = 0; data.lastCritUpgrade = 0; data.lastEnergyUpgrade = 0;
+        toast('⚠ МЯГКИЙ СБРОС');
+        playSound();
+        updateUI();
+        updateAllTimers();
+    }
+};
+
+document.getElementById('hardResetBtn').onclick = () => {
+    if (!currentUserId) { toast('⚠️ Войдите через Telegram'); return; }
+    if (confirm('💀 ЖЁСТКИЙ СБРОС - удалить ВСЁ?')) {
+        if (confirm('ВЫ УВЕРЕНЫ?')) {
+            localStorage.removeItem(`karp_${currentUserId}`);
+            location.reload();
+        }
+    }
+};
+
+document.getElementById('tonSoonBtn').onclick = () => toast('⏳ TON кошелёк скоро');
+
+// ========== TELEGRAM LOGIN (НАСТОЯЩАЯ АВТОРИЗАЦИЯ) ==========
+function initTelegramLogin() {
+    let container = document.getElementById('telegram-login-container');
+    if (!container) return;
+    
+    // Проверяем, есть ли уже сохранённый пользователь
+    const savedUserId = localStorage.getItem('last_karp_user');
+    if (savedUserId) {
+        currentUserId = savedUserId;
+        data = loadUserData(currentUserId);
+        updateUI();
+        startTimers();
+        container.style.display = 'none';
+        document.getElementById('userInfo').innerHTML = `✅ <strong>${data.userName || 'Игрок'}</strong><br><button id="logoutBtnTG" style="background:#ff4444;">🚪 Выйти</button>`;
+        document.getElementById('logoutBtn').style.display = 'block';
+        const logoutBtn = document.getElementById('logoutBtnTG');
+        if (logoutBtn) {
+            logoutBtn.onclick = () => {
+                localStorage.removeItem('last_karp_user');
+                location.reload();
+            };
+        }
+        return;
+    }
+    
+    container.innerHTML = '';
+    
+    // Проверка на HTTPS
+    if (window.location.protocol !== 'https:') {
+        container.innerHTML = '<div style="color:#ff8800; text-align:center;">⚠️ Для входа через Telegram нужен HTTPS. Загрузите игру на GitHub Pages или Vercel.</div>';
+        return;
+    }
+    
+    // Настоящий Telegram виджет
+    const script = document.createElement('script');
+    script.src = 'https://telegram.org/js/telegram-widget.js?22';
+    script.setAttribute('data-telegram-login', TELEGRAM_BOT_NAME);
+    script.setAttribute('data-size', 'large');
+    script.setAttribute('data-radius', '12');
+    script.setAttribute('data-userpic', 'true');
+    script.setAttribute('data-onauth', 'onTelegramAuth');
+    script.setAttribute('data-request-access', 'write');
+    container.appendChild(script);
+    
+    // Добавляем пояснение
+    const hint = document.createElement('div');
+    hint.style.marginTop = '10px';
+    hint.style.fontSize = '12px';
+    hint.style.color = '#aaa';
+    hint.style.textAlign = 'center';
+    hint.innerHTML = 'Нажмите на кнопку выше, чтобы войти через Telegram';
+    container.appendChild(hint);
+}
+
+// Глобальная функция для Telegram
+window.onTelegramAuth = function(user) {
+    console.log('Telegram auth:', user);
+    if (user && user.id) {
+        currentUserId = 'telegram_' + user.id;
+        localStorage.setItem('last_karp_user', currentUserId);
+        
+        data = loadUserData(currentUserId);
+        data.userName = user.first_name + (user.last_name ? ' ' + user.last_name : '');
+        saveUserData();
+        
+        updateUI();
+        startTimers();
+        
+        const container = document.getElementById('telegram-login-container');
+        if (container) container.style.display = 'none';
+        
+        document.getElementById('userInfo').innerHTML = `✅ <strong>${data.userName}</strong><br><button id="logoutBtnTG" style="background:#ff4444;">🚪 Выйти</button>`;
+        document.getElementById('logoutBtn').style.display = 'block';
+        
+        const logoutBtn = document.getElementById('logoutBtnTG');
+        if (logoutBtn) {
+            logoutBtn.onclick = () => {
+                localStorage.removeItem('last_karp_user');
+                location.reload();
+            };
+        }
+        
+        toast(`✅ Добро пожаловать, ${user.first_name}!`);
+    } else {
+        console.error('Telegram auth failed:', user);
+        toast('❌ Ошибка входа через Telegram. Убедитесь, что бот настроен.');
+    }
+};
+
+document.getElementById('logoutBtn').onclick = () => {
+    if (confirm('Выйти из аккаунта?')) {
+        localStorage.removeItem('last_karp_user');
+        location.reload();
+    }
+};
+
+function openTab(id) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+}
+
+// ========== ЗАПУСК ==========
+window.onload = () => {
+    initTelegramLogin();
+};
