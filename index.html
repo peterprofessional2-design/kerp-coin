@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>KARP — кликер</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="bg"></div>
+    <div id="toast"></div>
+
+    <div class="topbar">
+        <div class="logo">🐟 KARP</div>
+        <div class="energyBox">⚡ <span id="energy">0</span></div>
+    </div>
+
+    <div class="tapBarBox">
+        <div class="tapBar"><div id="tapBarFill"></div></div>
+        <div id="tapEnergyText">50 / 50</div>
+    </div>
+
+    <div class="content">
+        <div id="main" class="tab active">
+            <div class="mainCenter">
+                <button id="tapButton">
+                    <div class="tap-coin">🐟</div>
+                    <div class="tap-text">TAP</div>
+                </button>
+                <div class="tapTitle">👆 Нажми на рыбу</div>
+                <div class="totalText">📊 Всего тапов: <span id="totalTapText">0</span></div>
+                <div class="levelText">🏆 Уровень <span id="levelText">1</span></div>
+                <div class="prestigeBonusText">✨ Бонус престижа: x<span id="prestigeMultiplier">1.00</span></div>
+                <div class="statsMini">
+                    <div class="miniCard"><div class="mini-icon">🔥</div><div class="mini-label">Сила</div><div class="mini-value" id="powerText">1</div></div>
+                    <div class="miniCard"><div class="mini-icon">⚡</div><div class="mini-label">Авто</div><div class="mini-value" id="autoText">0</div></div>
+                    <div class="miniCard"><div class="mini-icon">💥</div><div class="mini-label">Крит</div><div class="mini-value" id="critText">0</div></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="shop" class="tab">
+            <h2>🛒 МАГАЗИН</h2>
+            <div class="grid">
+                <div class="card"><div class="card-icon">🔥</div><h3>Сила</h3><p>Увеличивает энергию за тап</p><div class="price" id="powerCost">💰 500</div><button id="buyPower">КУПИТЬ</button><div class="timer-text" id="powerTimer"></div></div>
+                <div class="card"><div class="card-icon">⚡</div><h3>Авто-тап</h3><p>Пассивный доход энергии</p><div class="price" id="autoCost">💰 1000</div><button id="buyAuto">КУПИТЬ</button><div class="timer-text" id="autoTimer"></div></div>
+                <div class="card"><div class="card-icon">💥</div><h3>Критический</h3><p>Шанс x3 энергии</p><div class="price" id="critCost">💰 2000</div><button id="buyCrit">КУПИТЬ</button><div class="timer-text" id="critTimer"></div></div>
+            </div>
+        </div>
+
+        <div id="upgrades" class="tab">
+            <h2>🔧 УЛУЧШЕНИЯ</h2>
+            <div class="grid">
+                <div class="card"><div class="card-icon">🔥</div><h3>Tap Engine</h3><p>+5 силы</p><div class="price" id="tapUpgradeCost">💰 50000</div><button id="upTap">УЛУЧШИТЬ</button><div class="timer-text" id="tapUpgradeTimer"></div></div>
+                <div class="card"><div class="card-icon">⚡</div><h3>Reactor</h3><p>+5 авто</p><div class="price" id="autoUpgradeCost">💰 80000</div><button id="upAuto">УЛУЧШИТЬ</button><div class="timer-text" id="autoUpgradeTimer"></div></div>
+                <div class="card"><div class="card-icon">💥</div><h3>Quantum Crit</h3><p>+5% крита</p><div class="price" id="critUpgradeCost">💰 120000</div><button id="upCrit">УЛУЧШИТЬ</button><div class="timer-text" id="critUpgradeTimer"></div></div>
+                <div class="card"><div class="card-icon">🔋</div><h3>Energy Core</h3><p>+10 макс. энергии</p><div class="price">💰 1000000</div><button id="upCore">УЛУЧШИТЬ</button><div class="timer-text" id="coreTimer"></div><div class="tip">Раз в час</div></div>
+            </div>
+        </div>
+
+        <div id="prestige" class="tab">
+            <div class="card prestige-card">
+                <div class="prestige-icon">🌟</div>
+                <h3>Реинкарнация</h3>
+                <p>Сбрось прогресс ради вечного бонуса</p>
+                <div class="prestige-need">🎯 Нужно: 1,000,000 тапов</div>
+                <div class="progress-bar"><div id="prestigeProgressFill" class="progress-fill"></div></div>
+                <div id="prestigeProgress" class="progress-text">0 / 1,000,000 (0%)</div>
+                <div id="prestigeReward">🎁 Следующий престиж: x1.10</div>
+                <button id="prestigeBtn">🌟 ПРЕСТИЖ 🌟</button>
+                <div class="tip">Бонус престижа остаётся навсегда</div>
+            </div>
+        </div>
+
+        <div id="daily" class="tab">
+            <div class="card daily-card">
+                <div class="daily-icon">🎁</div>
+                <h3>Бонус дня</h3>
+                <p>Забери каждый день!</p>
+                <button id="dailyBtn">ЗАБРАТЬ</button>
+                <div id="dailyTimer" class="timer">ГОТОВО</div>
+            </div>
+        </div>
+
+        <div id="stats" class="tab">
+            <div class="card stats-card"><div id="statsText">Загрузка...</div></div>
+        </div>
+
+        <div id="news" class="tab">
+            <div class="card">
+                <div class="news-item"><span class="news-icon">🐟</span><div>Тапай, набирай энергию и улучшай!</div></div>
+                <div class="news-item"><span class="news-icon">⚡</span><div>Энергия восстанавливается 1/сек</div></div>
+                <div class="news-item"><span class="news-icon">🌟</span><div>Престиж даёт вечный множитель</div></div>
+                <div class="news-item"><span class="news-icon">💎</span><div>TON кошелёк – скоро</div></div>
+            </div>
+        </div>
+
+        <div id="settings" class="tab">
+            <h2>⚙ НАСТРОЙКИ</h2>
+            <div class="grid">
+                <div class="card">
+                    <h3>👤 ВХОД В ИГРУ</h3>
+                    <input type="text" id="playerName" placeholder="Твой никнейм" style="width:100%; padding:12px; border-radius:30px; border:none; margin-bottom:10px; background:#1a1a1a; color:white; text-align:center;">
+                    <button id="loginBtn">🚪 НАЧАТЬ ИГРАТЬ</button>
+                    <div id="userInfo" style="margin-top:10px;"></div>
+                    <button id="logoutBtn" style="display:none; background:#ff4444; margin-top:10px;">🚪 Выйти</button>
+                </div>
+                <div class="card">
+                    <h3>💰 TON КОШЕЛЁК (СКОРО)</h3>
+                    <button id="tonSoonBtn" style="background:#333;">⏳ В разработке</button>
+                </div>
+                <div class="card"><h3>🔊 ЗВУК</h3><button id="toggleSoundBtn">🔊 ВКЛ</button></div>
+                <div class="card"><h3>💾 ЭКСПОРТ</h3><button id="exportBtn">📤 СОХРАНИТЬ</button></div>
+                <div class="card"><h3>📥 ИМПОРТ</h3><button id="importBtn">📥 ЗАГРУЗИТЬ</button><input type="file" id="importFile" style="display:none"></div>
+                <div class="card"><h3>🗑 СБРОС</h3><button id="softResetBtn" style="background:#ff8800; margin-bottom:8px;">⚠ МЯГКИЙ СБРОС</button><button id="hardResetBtn" style="background:#ff2255;">💀 ЖЁСТКИЙ СБРОС</button></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bottomMenu">
+        <button onclick="openTab('main')">🏠</button><button onclick="openTab('shop')">🛒</button><button onclick="openTab('upgrades')">🔧</button>
+        <button onclick="openTab('prestige')">✨</button><button onclick="openTab('daily')">📅</button><button onclick="openTab('stats')">📊</button>
+        <button onclick="openTab('news')">📢</button><button onclick="openTab('settings')">⚙️</button>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
